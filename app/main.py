@@ -1,4 +1,10 @@
+import os
+import sys
 import asyncio
+
+# Fix sys.path to allow absolute imports when running app/main.py directly
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
