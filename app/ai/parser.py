@@ -34,11 +34,11 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
         mode = profile.mode
         
         # Load long term memories
-        mem_objs = list_memories(db, user_id=user_id, limit=8)
+        mem_objs = list_memories(db, user_id=user_id, limit=20)
         memories = [m.content for m in mem_objs]
         
         # Load chat history
-        history = get_chat_history(db, user_id=user_id, limit=10)
+        history = get_chat_history(db, user_id=user_id, limit=100)
         
         # Get user's local current time
         local_time = now_local(profile.timezone)
@@ -72,7 +72,7 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
                 model=settings.ai_model,
                 messages=messages,
                 temperature=0.7,
-                max_tokens=1500,
+                max_tokens=4096,
             )
             
             reply = response.choices[0].message.content or ""
