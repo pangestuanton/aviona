@@ -185,7 +185,6 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
 
             buttons = []
             for m in memories:
-                # Show first 20 characters of memory content
                 preview = m.content[:25] + "..." if len(m.content) > 25 else m.content
                 buttons.append([InlineKeyboardButton(f"🗑️ {preview}", callback_data=f"delmemact_{m.id}")])
             buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="tasks_memory")])
@@ -355,137 +354,235 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         await update.message.chat.send_action(action="typing")
 
-        parsed = parse_message(text=text, user_id=user_id, now=now)
+        parsed_items = parse_message(text=text, user_id=user_id, now=now)
         if forced_intent:
-            parsed["intent"] = forced_intent
+            for parsed in parsed_items:
+                parsed["intent"] = forced_intent
 
-        intent = parsed.get("intent", "general_chat")
+        # 1. Single Action Flow (concise and highly tailored response)
+        if len(parsed_items) == 1:
+            parsed = parsed_items[0]
+            intent = parsed.get("intent", "general_chat")
 
-        with SessionLocal() as db:
-            # Re-fetch profile in this session to make updates
-            profile = get_user_profile(db, user_id)
-            tz_name = profile.timezone
+            with SessionLocal() as db:
+                profile = get_user_profile(db, user_id)
+                tz_name = profile.timezone
 
-            if intent in ["create_task", "create_reminder"]:
-                task = create_task_from_parsed(db, user_id, parsed, raw_text=text, timezone_name=tz_name)
-                local_deadline = utc_to_local(task.deadline, tz_name) if task.deadline else None
-                deadline_str = format_datetime_id(local_deadline)
-                if local_deadline and local_deadline < now_local(tz_name):
-                    deadline_str += " (⚠️ Sudah Terlewat!)"
-                
-                await update.message.reply_text(
-                    f"✨ Catatan Aviona Learn ✨\n\n"
-                    f"Siap! Tugas kamu sudah berhasil aku catat ya:\n\n"
-                    f"📝 {task.title}\n"
-                    f"📚 Matkul: {task.course or '-'}\n"
-                    f"⏰ Deadline: {deadline_str}\n"
-                    f"🔔 Reminder: Sudah dijadwalkan secara otomatis! Semangat! 💪"
-                )
-                return
-
-            if intent == "create_schedule":
-                schedule = create_schedule_from_parsed(db, user_id, parsed, raw_text=text)
-                await update.message.reply_text(
-                    f"📅 Jadwal Kuliah Baru oleh Aviona:\n\n"
-                    f"📖 {schedule.course}\n"
-                    f"📅 Hari: {schedule.day_of_week or '-'}\n"
-                    f"🕒 Jam: {schedule.start_time or '-'} - {schedule.end_time or '-'}\n"
-                    f"📍 Ruang: {schedule.room or '-'}\n\n"
-                    f"Aku bakal ingetin kamu sebelum kelas dimulai ya! 😉"
-                )
-                return
-
-            if intent == "update_task":
-                task = update_task_from_parsed(db, user_id, parsed, raw_text=text, timezone_name=tz_name)
-                if task:
+                if intent in ["create_task", "create_reminder"]:
+                    task = create_task_from_parsed(db, user_id, parsed, raw_text=text, timezone_name=tz_name)
                     local_deadline = utc_to_local(task.deadline, tz_name) if task.deadline else None
                     deadline_str = format_datetime_id(local_deadline)
                     if local_deadline and local_deadline < now_local(tz_name):
                         deadline_str += " (⚠️ Sudah Terlewat!)"
+                    
                     await update.message.reply_text(
-                        f"🔄 Aviona berhasil memperbarui tugasmu:\n\n"
+                        f"✨ Catatan Aviona Learn ✨\n\n"
+                        f"Siap! Tugas kamu sudah berhasil aku catat ya:\n\n"
                         f"📝 {task.title}\n"
-                        f"⏰ Deadline baru: {deadline_str}"
+                        f"📚 Matkul: {task.course or '-'}\n"
+                        f"⏰ Deadline: {deadline_str}\n"
+                        f"🔔 Reminder: Sudah dijadwalkan secara otomatis! Semangat! 💪"
                     )
-                else:
-                    await update.message.reply_text("Maaf, aku tidak menemukan tugas yang dimaksud untuk diubah.")
+                    return
+
+                if intent == "create_schedule":
+                    schedule = create_schedule_from_parsed(db, user_id, parsed, raw_text=text)
+                    await update.message.reply_text(
+                        f"📅 Jadwal Kuliah Baru oleh Aviona:\n\n"
+                        f"📖 {schedule.course}\n"
+                        f"📅 Hari: {schedule.day_of_week or '-'}\n"
+                        f"🕒 Jam: {schedule.start_time or '-'} - {schedule.end_time or '-'}\n"
+                        f"📍 Ruang: {schedule.room or '-'}\n\n"
+                        f"Aku bakal ingetin kamu sebelum kelas dimulai ya! 😉"
+                    )
+                    return
+
+                if intent == "update_task":
+                    task = update_task_from_parsed(db, user_id, parsed, raw_text=text, timezone_name=tz_name)
+                    if task:
+                        local_deadline = utc_to_local(task.deadline, tz_name) if task.deadline else None
+                        deadline_str = format_datetime_id(local_deadline)
+                        if local_deadline and local_deadline < now_local(tz_name):
+                            deadline_str += " (⚠️ Sudah Terlewat!)"
+                        await update.message.reply_text(
+                            f"🔄 Aviona berhasil memperbarui tugasmu:\n\n"
+                            f"📝 {task.title}\n"
+                            f"⏰ Deadline baru: {deadline_str}"
+                        )
+                    else:
+                        await update.message.reply_text("Maaf, aku tidak menemukan tugas yang dimaksud untuk diubah.")
+                    return
+
+                if intent == "delete_task":
+                    count = delete_task_by_text(db, user_id, parsed.get("target") or text)
+                    if count:
+                        await update.message.reply_text(f"🗑️ Oke, tugas tersebut sudah Aviona hapus dari daftar ya.")
+                    else:
+                        await update.message.reply_text("Hmm, Aviona tidak menemukan tugas yang cocok untuk dihapus.")
+                    return
+
+                if intent == "mark_done":
+                    task = mark_task_done_by_text(db, user_id, parsed.get("target") or text)
+                    if task:
+                        await update.message.reply_text(f"🎉 Keren banget! Tugas {task.title} sudah selesai. Aviona bangga sama kamu! Semangat terus ya! 🚀")
+                    else:
+                        await update.message.reply_text("Aviona tidak menemukan tugas yang cocok untuk ditandai selesai.")
+                    return
+
+                if intent == "save_memory":
+                    content = parsed.get("memory_content") or text
+                    save_memory(db, user_id, content=content, category="general", importance=2)
+                    await update.message.reply_text("🧠 Siap, fakta baru itu sudah Aviona simpan di memori-ku.")
+                    return
+
+                if intent == "set_preference":
+                    content = parsed.get("memory_content") or text
+                    set_user_preference(db, user_id, preference=content)
+                    await update.message.reply_text("⚙️ Oke, preferensi belajarmu sudah Aviona catat dan sesuaikan.")
+                    return
+
+                if intent == "set_timezone":
+                    new_tz = parsed.get("new_value") or text
+                    tz_map = {
+                        "wib": "Asia/Jakarta",
+                        "wita": "Asia/Makassar",
+                        "wit": "Asia/Jayapura",
+                        "jakarta": "Asia/Jakarta",
+                        "makassar": "Asia/Makassar",
+                        "jayapura": "Asia/Jayapura",
+                    }
+                    clean_tz = new_tz.lower().strip()
+                    mapped_tz = None
+                    for key, val in tz_map.items():
+                        if key in clean_tz:
+                            mapped_tz = val
+                            break
+
+                    if not mapped_tz:
+                        import pytz
+                        try:
+                            pytz.timezone(new_tz)
+                            mapped_tz = new_tz
+                        except Exception:
+                            pass
+
+                    if mapped_tz:
+                        profile.timezone = mapped_tz
+                        db.commit()
+                        await update.message.reply_text(f"⚙️ Zona waktu kamu berhasil diubah ke {mapped_tz}!")
+                    else:
+                        await update.message.reply_text("Maaf, Aviona tidak mengenali zona waktu tersebut. Gunakan WIB, WITA, WIT, atau nama zona waktu Olson seperti Asia/Jakarta.")
+                    return
+
+            if intent == "list_today":
+                await _send_tasks_for_period(update, "today")
+                return
+            if intent == "list_tomorrow":
+                await _send_tasks_for_period(update, "tomorrow")
+                return
+            if intent == "list_week":
+                await _send_tasks_for_period(update, "week")
                 return
 
-            if intent == "delete_task":
-                count = delete_task_by_text(db, user_id, parsed.get("target") or text)
-                if count:
-                    await update.message.reply_text(f"🗑️ Oke, tugas tersebut sudah Aviona hapus dari daftar ya.")
-                else:
-                    await update.message.reply_text("Hmm, Aviona tidak menemukan tugas yang cocok untuk dihapus.")
-                return
-
-            if intent == "mark_done":
-                task = mark_task_done_by_text(db, user_id, parsed.get("target") or text)
-                if task:
-                    await update.message.reply_text(f"🎉 Keren banget! Tugas {task.title} sudah selesai. Aviona bangga sama kamu! Semangat terus ya! 🚀")
-                else:
-                    await update.message.reply_text("Aviona tidak menemukan tugas yang cocok untuk ditandai selesai.")
-                return
-
-            if intent == "save_memory":
-                content = parsed.get("memory_content") or text
-                save_memory(db, user_id, content=content, category="general", importance=2)
-                await update.message.reply_text("🧠 Siap, fakta baru itu sudah Aviona simpan di memori-ku.")
-                return
-
-            if intent == "set_preference":
-                content = parsed.get("memory_content") or text
-                set_user_preference(db, user_id, preference=content)
-                await update.message.reply_text("⚙️ Oke, preferensi belajarmu sudah Aviona catat dan sesuaikan.")
-                return
-
-            if intent == "set_timezone":
-                new_tz = parsed.get("new_value") or text
-                tz_map = {
-                    "wib": "Asia/Jakarta",
-                    "wita": "Asia/Makassar",
-                    "wit": "Asia/Jayapura",
-                    "jakarta": "Asia/Jakarta",
-                    "makassar": "Asia/Makassar",
-                    "jayapura": "Asia/Jayapura",
-                }
-                clean_tz = new_tz.lower().strip()
-                mapped_tz = None
-                for key, val in tz_map.items():
-                    if key in clean_tz:
-                        mapped_tz = val
-                        break
-
-                if not mapped_tz:
-                    import pytz
-                    try:
-                        pytz.timezone(new_tz)
-                        mapped_tz = new_tz
-                    except Exception:
-                        pass
-
-                if mapped_tz:
-                    profile.timezone = mapped_tz
-                    db.commit()
-                    await update.message.reply_text(f"⚙️ Zona waktu kamu berhasil diubah ke {mapped_tz}!")
-                else:
-                    await update.message.reply_text("Maaf, Aviona tidak mengenali zona waktu tersebut. Gunakan WIB, WITA, WIT, atau nama zona waktu Olson seperti Asia/Jakarta.")
-                return
-
-        if intent == "list_today":
-            await _send_tasks_for_period(update, "today")
+            reply = parsed.get("reply") or "Ada lagi yang bisa Aviona bantu? Aku bisa catat tugas, jadwal kuliah, atau preferensi belajar kamu."
+            await update.message.reply_text(reply)
             return
 
-        if intent == "list_tomorrow":
-            await _send_tasks_for_period(update, "tomorrow")
-            return
+        # 2. Batch Processing Flow (aggregated summary response)
+        tasks_created = []
+        schedules_created = []
+        memories_saved = []
+        preferences_set = []
+        tasks_completed = []
+        tasks_deleted = []
+        timezones_set = []
+        errors = 0
 
-        if intent == "list_week":
-            await _send_tasks_for_period(update, "week")
-            return
+        with SessionLocal() as db:
+            profile = get_user_profile(db, user_id)
+            tz_name = profile.timezone
 
-        reply = parsed.get("reply") or "Ada lagi yang bisa Aviona bantu? Aku bisa catat tugas, jadwal kuliah, atau preferensi belajar kamu."
-        await update.message.reply_text(reply)
+            for parsed in parsed_items:
+                intent = parsed.get("intent", "general_chat")
+                try:
+                    if intent in ["create_task", "create_reminder"]:
+                        t = create_task_from_parsed(db, user_id, parsed, raw_text=parsed.get("title") or "Tugas", timezone_name=tz_name)
+                        tasks_created.append(t.title)
+                    elif intent == "create_schedule":
+                        s = create_schedule_from_parsed(db, user_id, parsed, raw_text=parsed.get("course") or "Jadwal")
+                        schedules_created.append(s.course)
+                    elif intent == "mark_done":
+                        t = mark_task_done_by_text(db, user_id, parsed.get("target") or "")
+                        if t:
+                            tasks_completed.append(t.title)
+                    elif intent == "delete_task":
+                        c = delete_task_by_text(db, user_id, parsed.get("target") or "")
+                        if c:
+                            tasks_deleted.append(parsed.get("target") or "tugas")
+                    elif intent == "save_memory":
+                        save_memory(db, user_id, content=parsed.get("memory_content") or "catatan", category="general", importance=2)
+                        memories_saved.append(parsed.get("memory_content") or "catatan")
+                    elif intent == "set_preference":
+                        set_user_preference(db, user_id, preference=parsed.get("memory_content") or "preferensi")
+                        preferences_set.append(parsed.get("memory_content") or "preferensi")
+                    elif intent == "set_timezone":
+                        new_tz = parsed.get("new_value")
+                        if new_tz:
+                            tz_map = {
+                                "wib": "Asia/Jakarta", "wita": "Asia/Makassar", "wit": "Asia/Jayapura",
+                                "jakarta": "Asia/Jakarta", "makassar": "Asia/Makassar", "jayapura": "Asia/Jayapura",
+                            }
+                            clean_tz = new_tz.lower().strip()
+                            mapped_tz = None
+                            for key, val in tz_map.items():
+                                if key in clean_tz:
+                                    mapped_tz = val
+                                    break
+                            if not mapped_tz:
+                                import pytz
+                                try:
+                                    pytz.timezone(new_tz)
+                                    mapped_tz = new_tz
+                                except Exception:
+                                    pass
+                            if mapped_tz:
+                                profile.timezone = mapped_tz
+                                db.commit()
+                                timezones_set.append(mapped_tz)
+                except Exception as e:
+                    print(f"Error processing batch item {parsed}: {e}")
+                    errors += 1
+
+        summary = ["✨ Rangkuman Aksi Aviona Learn ✨\n"]
+        if tasks_created:
+            summary.append(f"📝 Berhasil mencatat {len(tasks_created)} tugas baru:")
+            for tc in tasks_created[:5]:
+                summary.append(f"   • {tc}")
+            if len(tasks_created) > 5:
+                summary.append(f"   • ... dan {len(tasks_created) - 5} tugas lainnya.")
+        if schedules_created:
+            summary.append(f"📅 Berhasil mencatat {len(schedules_created)} jadwal kuliah baru:")
+            for sc in schedules_created[:5]:
+                summary.append(f"   • {sc}")
+            if len(schedules_created) > 5:
+                summary.append(f"   • ... dan {len(schedules_created) - 5} jadwal lainnya.")
+        if tasks_completed:
+            summary.append(f"🎉 Berhasil menyelesaikan {len(tasks_completed)} tugas: {', '.join(tasks_completed)}")
+        if tasks_deleted:
+            summary.append(f"🗑️ Berhasil menghapus {len(tasks_deleted)} tugas: {', '.join(tasks_deleted)}")
+        if memories_saved:
+            summary.append(f"🧠 Menyimpan {len(memories_saved)} memori baru.")
+        if preferences_set:
+            summary.append(f"⚙️ Memperbarui {len(preferences_set)} preferensi belajar.")
+        if timezones_set:
+            summary.append(f"🌎 Mengubah zona waktu kamu ke: {', '.join(timezones_set)}")
+        if errors:
+            summary.append(f"⚠️ Gagal memproses {errors} aksi.")
+
+        if len(summary) == 1:
+            await update.message.reply_text("Aviona tidak menemukan aksi terstruktur dari pesan kamu. Ada yang bisa dibantu?")
+        else:
+            await update.message.reply_text("\n".join(summary))
 
     except Exception as exc:
         print(f"Error in message_handler: {exc}")

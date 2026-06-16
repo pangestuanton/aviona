@@ -80,95 +80,95 @@ def _clean_and_parse_date(text: str, now: datetime) -> datetime | None:
     return parsed
 
 
-def parse_with_fallback(text: str, now: datetime) -> dict[str, Any]:
-    """
-    Parser sederhana tanpa API AI.
-    """
-    lower = text.lower()
+def _parse_single_line_fallback(text: str, now: datetime) -> dict[str, Any]:
+    lower = text.lower().strip()
+    # Strip basic list markers like "1. ", "- ", "* " from line start
+    lower_clean = re.sub(r'^(\d+[\.\)]|[\-\*\u2022])\s+', '', lower)
+    text_clean = text[len(lower) - len(lower_clean):]
+
     result = _empty_result()
 
-    if any(x in lower for x in ["timezone", "zona waktu", "ubah wib", "ubah wita", "ubah wit"]):
+    if any(x in lower_clean for x in ["timezone", "zona waktu", "ubah wib", "ubah wita", "ubah wit"]):
         result["intent"] = "set_timezone"
         result["confidence"] = 0.8
         tz_word = None
         for word in ["wib", "wita", "wit", "jakarta", "makassar", "jayapura"]:
-            if word in lower:
+            if word in lower_clean:
                 tz_word = word
                 break
-        result["new_value"] = tz_word or text
+        result["new_value"] = tz_word or text_clean
         return result
 
-    if any(x in lower for x in ["lebih suka", "biasanya", "prefer", "preferensi"]):
+    if any(x in lower_clean for x in ["lebih suka", "biasanya", "prefer", "preferensi"]):
         result["intent"] = "set_preference"
-        result["memory_content"] = text
+        result["memory_content"] = text_clean
         result["confidence"] = 0.7
         return result
 
-    is_creation = any(x in lower for x in ["ingetin", "catat", "tambah", "buat", "kumpul", "dikumpul"])
+    is_creation = any(x in lower_clean for x in ["ingetin", "catat", "tambah", "buat", "kumpul", "dikumpul"])
 
     if not is_creation:
-        if any(x in lower for x in ["hari ini", "/today", "tugas hari ini"]):
+        if any(x in lower_clean for x in ["hari ini", "/today", "tugas hari ini"]):
             result["intent"] = "list_today"
             result["confidence"] = 0.8
             return result
 
-        if any(x in lower for x in ["besok", "/tomorrow"]) and any(x in lower for x in ["tampilkan", "lihat", "apa aja", "daftar", "tugas"]):
+        if any(x in lower_clean for x in ["besok", "/tomorrow"]) and any(x in lower_clean for x in ["tampilkan", "lihat", "apa aja", "daftar", "tugas"]):
             result["intent"] = "list_tomorrow"
             result["confidence"] = 0.8
             return result
 
-        if any(x in lower for x in ["minggu ini", "/week", "tugas minggu ini"]):
+        if any(x in lower_clean for x in ["minggu ini", "/week", "tugas minggu ini"]):
             result["intent"] = "list_week"
             result["confidence"] = 0.8
             return result
 
-    if any(x in lower for x in ["hapus", "delete"]):
+    if any(x in lower_clean for x in ["hapus", "delete"]):
         result["intent"] = "delete_task"
-        result["target"] = text
+        result["target"] = text_clean
         result["confidence"] = 0.7
         return result
 
-    if any(x in lower for x in ["selesai", "done", "sudah dikerjakan", "beres"]):
+    if any(x in lower_clean for x in ["selesai", "done", "sudah dikerjakan", "beres"]):
         result["intent"] = "mark_done"
-        result["target"] = text
+        result["target"] = text_clean
         result["confidence"] = 0.7
         return result
 
-    if any(x in lower for x in ["ubah", "ganti", "set deadline"]):
+    if any(x in lower_clean for x in ["ubah", "ganti", "set deadline"]):
         result["intent"] = "update_task"
-        result["target"] = text
+        result["target"] = text_clean
         result["confidence"] = 0.7
         return result
 
-    if any(x in lower for x in ["ingat bahwa", "remember", "catat bahwa"]):
+    if any(x in lower_clean for x in ["ingat bahwa", "remember", "catat bahwa"]):
         result["intent"] = "save_memory"
-        result["memory_content"] = text
+        result["memory_content"] = text_clean
         result["confidence"] = 0.7
         return result
 
-    if any(x in lower for x in ["lebih suka", "biasanya", "prefer", "preferensi", "ingetin"]):
-        if "tugas" in lower or "deadline" in lower or "kuis" in lower:
-             # Likely creating a task if 'ingetin' is used with 'tugas'
+    if any(x in lower_clean for x in ["lebih suka", "biasanya", "prefer", "preferensi", "ingetin"]):
+        if "tugas" in lower_clean or "deadline" in lower_clean or "kuis" in lower_clean:
              pass
         else:
             result["intent"] = "set_preference"
-            result["memory_content"] = text
+            result["memory_content"] = text_clean
             result["confidence"] = 0.7
             return result
 
-    if any(x in lower for x in ["jadwal kuliah", "setiap senin", "setiap selasa", "setiap rabu", "setiap kamis", "setiap jumat"]):
+    if any(x in lower_clean for x in ["jadwal kuliah", "setiap senin", "setiap selasa", "setiap rabu", "setiap kamis", "setiap jumat"]):
         result["intent"] = "create_schedule"
-        result["title"] = text
-        result["course"] = _guess_course(text)
-        result["day_of_week"] = _guess_day(lower)
+        result["title"] = text_clean
+        result["course"] = _guess_course(text_clean)
+        result["day_of_week"] = _guess_day(lower_clean)
         result["confidence"] = 0.65
         return result
 
-    if any(x in lower for x in ["tugas", "deadline", "dikumpul", "kumpul", "pr", "laporan", "kuis", "ujian", "ingetin"]):
+    if any(x in lower_clean for x in ["tugas", "deadline", "dikumpul", "kumpul", "pr", "laporan", "kuis", "ujian", "ingetin"]):
         result["intent"] = "create_task"
-        result["title"] = text
-        result["course"] = _guess_course(text)
-        parsed_date = _clean_and_parse_date(text, now)
+        result["title"] = text_clean
+        result["course"] = _guess_course(text_clean)
+        parsed_date = _clean_and_parse_date(text_clean, now)
         if parsed_date:
             result["deadline"] = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
             result["reminders"] = [
@@ -180,6 +180,32 @@ def parse_with_fallback(text: str, now: datetime) -> dict[str, Any]:
 
     result["reply"] = "Aku bisa bantu catat tugas, jadwal kuliah, reminder, dan preferensi belajarmu."
     return result
+
+
+def parse_with_fallback(text: str, now: datetime) -> list[dict[str, Any]]:
+    """
+    Parser sederhana tanpa API AI. Mendukung multi-baris.
+    """
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    if len(lines) <= 1:
+        return [_parse_single_line_fallback(text, now)]
+
+    results = []
+    for line in lines:
+        lower_line = line.lower()
+        # Skip header info
+        if any(lower_line.startswith(x) for x in ["jadwal kuliah", "tugas semester", "daftar", "berikut", "ini jadwal"]):
+            if len(lines) > 1:
+                continue
+        parsed_line = _parse_single_line_fallback(line, now)
+        # Skip general chat if we successfully parsed other schedules or tasks
+        if parsed_line["intent"] == "general_chat" and any(r["intent"] != "general_chat" for r in results):
+            continue
+        results.append(parsed_line)
+
+    if not results:
+        results.append(_empty_result())
+    return results
 
 
 def _guess_course(text: str) -> str | None:
@@ -209,7 +235,7 @@ def _guess_day(lower: str) -> str | None:
     return None
 
 
-def parse_message(text: str, user_id: int, now: datetime) -> dict[str, Any]:
+def parse_message(text: str, user_id: int, now: datetime) -> list[dict[str, Any]]:
     """
     Parser utama:
     - Jika API AI tersedia, pakai AI.
@@ -257,18 +283,43 @@ def parse_message(text: str, user_id: int, now: datetime) -> dict[str, Any]:
 
         content = response.choices[0].message.content or "{}"
         
-        # Clean json content to extract only the valid JSON dictionary
+        # Clean json content to extract only the valid JSON dictionary/array
         content = content.strip()
-        start_idx = content.find('{')
-        end_idx = content.rfind('}')
+        start_idx_obj = content.find('{')
+        end_idx_obj = content.rfind('}')
+        start_idx_arr = content.find('[')
+        end_idx_arr = content.rfind(']')
+
+        # Prioritize whichever wrapper is present and outer
+        start_idx = -1
+        end_idx = -1
+        if start_idx_obj != -1 and (start_idx_arr == -1 or start_idx_obj < start_idx_arr):
+            start_idx = start_idx_obj
+            end_idx = end_idx_obj
+        elif start_idx_arr != -1:
+            start_idx = start_idx_arr
+            end_idx = end_idx_arr
+
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             content = content[start_idx:end_idx + 1]
             
         parsed = json.loads(content)
 
-        base = _empty_result()
-        base.update(parsed)
-        return base
+        if isinstance(parsed, list):
+            items = parsed
+        elif isinstance(parsed, dict) and "actions" in parsed:
+            items = parsed["actions"]
+        elif isinstance(parsed, dict):
+            items = [parsed]
+        else:
+            items = [_empty_result()]
+
+        normalized = []
+        for item in items:
+            base = _empty_result()
+            base.update(item)
+            normalized.append(base)
+        return normalized
 
     except Exception:
         return parse_with_fallback(text, now)
