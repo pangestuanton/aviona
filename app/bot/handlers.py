@@ -720,3 +720,35 @@ async def _send_schedule(update: Update) -> None:
     except Exception as exc:
         print(f"Error in _send_schedule: {exc}")
         traceback.print_exc()
+
+
+async def clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.effective_chat.id
+    current_message_id = update.message.message_id
+
+    try:
+        status_message = await update.message.reply_text("🧹 Sedang membersihkan chat...")
+        status_message_id = status_message.message_id
+
+        import asyncio
+        tasks = []
+        for msg_id in range(current_message_id, max(1, current_message_id - 80), -1):
+            if msg_id == status_message_id:
+                continue
+            tasks.append(context.bot.delete_message(chat_id=chat_id, message_id=msg_id))
+
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        try:
+            await status_message.delete()
+        except Exception:
+            pass
+
+    except Exception as exc:
+        print(f"Error in clear_handler: {exc}")
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="🧹 Chat berhasil dibersihkan! Silakan pilih menu di bawah ini untuk mulai kembali: 👇",
+        reply_markup=MAIN_INLINE_KEYBOARD
+    )

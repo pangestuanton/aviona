@@ -18,6 +18,7 @@ Daftar Perintah:
 /tomorrow - Lihat daftar tugas besok
 /week - Lihat daftar tugas minggu ini
 /schedule - Lihat jadwal kuliah mingguan
+/clear - Bersihkan riwayat chat
 /help - Tampilkan panduan ini
 
 Kamu juga bisa kirim chat bebas:
