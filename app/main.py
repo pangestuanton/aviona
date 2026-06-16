@@ -21,6 +21,45 @@ from app.bot.handlers import (
 )
 
 
+async def reminder_worker(application) -> None:
+    from app.database.session import SessionLocal
+    from app.database.repository import get_due_timed_reminders
+    from app.utils.datetime_utils import utc_now
+    
+    print("Background reminder worker started...")
+    while True:
+        try:
+            await asyncio.sleep(30)
+            now_utc = utc_now()
+            
+            with SessionLocal() as db:
+                due_reminders = get_due_timed_reminders(db, now_utc)
+                if not due_reminders:
+                    continue
+                
+                for reminder in due_reminders:
+                    try:
+                        # Send telegram message
+                        await application.bot.send_message(
+                            chat_id=reminder.user_id,
+                            text=reminder.message,
+                            parse_mode="HTML",
+                        )
+                        
+                        # Update reminder state
+                        reminder.sent_count += 1
+                        reminder.last_sent_at = utc_now()
+                        db.commit()
+                        print(f"Sent reminder to {reminder.user_id} (count {reminder.sent_count}/3): {reminder.message}")
+                    except Exception as e:
+                        print(f"Error sending reminder to {reminder.user_id}: {e}")
+        except asyncio.CancelledError:
+            print("Background reminder worker cancelled.")
+            break
+        except Exception as e:
+            print(f"Error in reminder_worker: {e}")
+
+
 async def main() -> None:
     settings = get_settings()
 
@@ -61,11 +100,15 @@ async def main() -> None:
         await app.start()
         await app.updater.start_polling()
         
+        # Spawn background reminder worker
+        worker_task = asyncio.create_task(reminder_worker(app))
+        
         # Keep the bot running
         try:
             while True:
                 await asyncio.sleep(3600)
         except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+            worker_task.cancel()
             await app.updater.stop()
             await app.stop()
             await app.shutdown()

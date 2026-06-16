@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.database.models import Base, ChatMessage, Memory
+from app.database.models import Base, ChatMessage, Memory, TimedReminder
 from app.ai.parser import generate_chat_response
 from app.config import Settings
 
@@ -93,3 +93,40 @@ def test_generate_chat_response_success(mock_openai_class, mock_get_settings, mo
         mems = db.query(Memory).filter(Memory.user_id == 12345).all()
         assert len(mems) == 1
         assert mems[0].content == "User bernama Anton"
+
+
+@patch("app.ai.parser.SessionLocal", TestSessionLocal)
+@patch("app.ai.parser.get_settings")
+@patch("app.ai.parser.OpenAI")
+def test_generate_chat_response_with_reminder(mock_openai_class, mock_get_settings, mock_settings):
+    mock_get_settings.return_value = mock_settings
+    
+    # Mock OpenAI client
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    
+    mock_completion = MagicMock()
+    mock_completion.choices = [
+        MagicMock(message=MagicMock(content="Oke Anton, nanti aku ingetin jam 16.00 ya! [REMINDER: 2026-06-16 16:00:00 | Rapat 30 menit lagi!] [MEMORY: User memiliki rapat hari ini]"))
+    ]
+    mock_client.chat.completions.create.return_value = mock_completion
+    
+    response = generate_chat_response(user_id=12345, message_text="Ingetin aku jam 16:30 ada rapat")
+    
+    # Check response text strips the reminder and memory tags
+    assert response == "Oke Anton, nanti aku ingetin jam 16.00 ya!"
+    
+    # Check database status
+    with TestSessionLocal() as db:
+        # Check long-term memory save
+        mems = db.query(Memory).filter(Memory.user_id == 12345).all()
+        assert len(mems) == 1
+        assert mems[0].content == "User memiliki rapat hari ini"
+        
+        # Check timed reminders save
+        reminders = db.query(TimedReminder).filter(TimedReminder.user_id == 12345).all()
+        assert len(reminders) == 1
+        assert reminders[0].message == "Rapat 30 menit lagi!"
+        # In mock settings, the timezone is "Asia/Jakarta" (UTC+7)
+        # 2026-06-16 16:00:00 Asia/Jakarta in UTC is 2026-06-16 09:00:00
+        assert reminders[0].remind_at.strftime("%Y-%m-%d %H:%M:%S") == "2026-06-16 09:00:00"

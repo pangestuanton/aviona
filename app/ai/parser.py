@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from openai import OpenAI
 
 from app.config import get_settings
@@ -11,8 +12,10 @@ from app.database.repository import (
     get_chat_history,
     save_memory,
     list_memories,
+    save_timed_reminder,
 )
 from app.ai.prompts import get_system_prompt
+from app.utils.datetime_utils import now_local, local_to_utc, format_datetime_id
 
 
 def generate_chat_response(user_id: int, message_text: str) -> str:
@@ -37,8 +40,12 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
         # Load chat history
         history = get_chat_history(db, user_id=user_id, limit=10)
         
+        # Get user's local current time
+        local_time = now_local(profile.timezone)
+        current_local_time = f"{local_time.strftime('%Y-%m-%d %H:%M:%S')} ({format_datetime_id(local_time)})"
+        
         # Construct messages payload
-        system_content = get_system_prompt(mode, memories)
+        system_content = get_system_prompt(mode, memories, current_local_time)
         messages = [{"role": "system", "content": system_content}]
         
         for msg in history:
@@ -79,6 +86,21 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
                     save_memory(db, user_id=user_id, content=extracted_fact, category="user_info", importance=1)
                 # Strip the memory block from the user-facing response
                 reply = re.sub(r'\[MEMORY:\s*.*?\]', '', reply, flags=re.IGNORECASE | re.DOTALL).strip()
+            
+            # Extract timed reminders from reply: format [REMINDER: YYYY-MM-DD HH:MM:SS | message]
+            reminder_match = re.search(r'\[REMINDER:\s*([^|]+?)\s*\|\s*(.*?)\]', reply, re.IGNORECASE | re.DOTALL)
+            if reminder_match:
+                time_str = reminder_match.group(1).strip()
+                reminder_msg = reminder_match.group(2).strip()
+                try:
+                    local_dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+                    utc_dt = local_to_utc(local_dt, profile.timezone)
+                    if utc_dt:
+                        save_timed_reminder(db, user_id=user_id, remind_at_utc=utc_dt, message=reminder_msg)
+                except Exception as e:
+                    print(f"Failed to parse reminder time '{time_str}': {e}")
+                # Strip the reminder block from the user-facing response
+                reply = re.sub(r'\[REMINDER:\s*[^|]+?\s*\|\s*.*?\]', '', reply, flags=re.IGNORECASE | re.DOTALL).strip()
             
             # Save assistant reply to database history
             save_chat_message(db, user_id=user_id, role="assistant", content=reply)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from app.database.models import UserProfile, ChatMessage, Memory
+from app.database.models import UserProfile, ChatMessage, Memory, TimedReminder
 from app.utils.datetime_utils import utc_now
 
 
@@ -103,3 +103,39 @@ def delete_memory_by_id(db: Session, memory_id: int) -> None:
     except Exception:
         db.rollback()
         raise
+
+
+def save_timed_reminder(db: Session, user_id: int, remind_at_utc: datetime, message: str) -> TimedReminder:
+    reminder = TimedReminder(
+        user_id=user_id,
+        remind_at=remind_at_utc,
+        message=message,
+        sent_count=0,
+    )
+    try:
+        db.add(reminder)
+        db.commit()
+        db.refresh(reminder)
+        return reminder
+    except Exception:
+        db.rollback()
+        raise
+
+
+def get_due_timed_reminders(db: Session, now_utc: datetime) -> list[TimedReminder]:
+    from sqlalchemy import or_
+    from datetime import timedelta
+    
+    one_minute_ago = now_utc - timedelta(minutes=1)
+    return (
+        db.query(TimedReminder)
+        .filter(
+            TimedReminder.remind_at <= now_utc,
+            TimedReminder.sent_count < 3,
+            or_(
+                TimedReminder.last_sent_at == None,
+                TimedReminder.last_sent_at <= one_minute_ago
+            )
+        )
+        .all()
+    )
