@@ -3,7 +3,7 @@ from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardBu
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
         ["/today", "/tomorrow"],
-        ["/week", "/memory"],
+        ["/week", "/schedule"],
         ["/help"],
     ],
     resize_keyboard=True,
@@ -12,17 +12,41 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
 MAIN_INLINE_KEYBOARD = InlineKeyboardMarkup(
     [
         [
-            InlineKeyboardButton("📋 Hari Ini", callback_data="tasks_today"),
-            InlineKeyboardButton("📅 Besok", callback_data="tasks_tomorrow"),
+            InlineKeyboardButton("➕ Tambah Data", callback_data="menu_add"),
+            InlineKeyboardButton("🔍 Cek Data", callback_data="menu_check"),
         ],
         [
-            InlineKeyboardButton("🗓️ Minggu Ini", callback_data="tasks_week"),
-            InlineKeyboardButton("📅 Jadwal Kuliah", callback_data="view_schedule"),
-        ],
-        [
-            InlineKeyboardButton("🧠 Memori", callback_data="tasks_memory"),
             InlineKeyboardButton("ℹ️ Bantuan", callback_data="help_info"),
         ],
     ]
 )
+
+ADD_INLINE_KEYBOARD = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton("📝 Tambah Tugas", callback_data="add_task_prompt"),
+            InlineKeyboardButton("📅 Tambah Jadwal", callback_data="add_schedule_prompt"),
+        ],
+        [
+            InlineKeyboardButton("🔙 Kembali", callback_data="back_main"),
+        ]
+    ]
+)
+
+CHECK_INLINE_KEYBOARD = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton("📋 Tugas Hari Ini", callback_data="tasks_today"),
+            InlineKeyboardButton("📅 Tugas Besok", callback_data="tasks_tomorrow"),
+        ],
+        [
+            InlineKeyboardButton("🗓️ Tugas Minggu Ini", callback_data="tasks_week"),
+            InlineKeyboardButton("📅 Jadwal Kuliah", callback_data="view_schedule"),
+        ],
+        [
+            InlineKeyboardButton("🔙 Kembali", callback_data="back_main"),
+        ],
+    ]
+)
+
 

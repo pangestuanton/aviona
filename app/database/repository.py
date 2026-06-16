@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.database.models import Task, Reminder, CourseSchedule
+from app.database.models import Task, Reminder, CourseSchedule, Memory
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -239,4 +239,22 @@ def get_user_schedules(db: Session, user_id: int) -> list[CourseSchedule]:
 
 def get_task_by_id(db: Session, task_id: int) -> Task | None:
     return db.query(Task).filter(Task.id == task_id).first()
+
+
+def get_schedule_by_id(db: Session, schedule_id: int) -> CourseSchedule | None:
+    return db.query(CourseSchedule).filter(CourseSchedule.id == schedule_id).first()
+
+
+def delete_schedule_by_id(db: Session, schedule_id: int) -> None:
+    db.query(CourseSchedule).filter(CourseSchedule.id == schedule_id).delete()
+    db.commit()
+
+
+def get_memory_by_id(db: Session, memory_id: int) -> Memory | None:
+    return db.query(Memory).filter(Memory.id == memory_id).first()
+
+
+def delete_memory_by_id(db: Session, memory_id: int) -> None:
+    db.query(Memory).filter(Memory.id == memory_id).delete()
+    db.commit()
 

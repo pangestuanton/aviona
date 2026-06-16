@@ -17,7 +17,7 @@ Daftar Perintah:
 /today - Lihat daftar tugas hari ini
 /tomorrow - Lihat daftar tugas besok
 /week - Lihat daftar tugas minggu ini
-/memory - Lihat memori & preferensi belajar kamu
+/schedule - Lihat jadwal kuliah mingguan
 /help - Tampilkan panduan ini
 
 Kamu juga bisa kirim chat bebas:

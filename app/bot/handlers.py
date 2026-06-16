@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 from app.ai.parser import parse_message
 from app.ai.memory import save_memory, set_user_preference, list_memories
 from app.bot.messages import START_MESSAGE, HELP_MESSAGE
-from app.bot.keyboards import MAIN_KEYBOARD, MAIN_INLINE_KEYBOARD
+from app.bot.keyboards import MAIN_KEYBOARD, MAIN_INLINE_KEYBOARD, ADD_INLINE_KEYBOARD, CHECK_INLINE_KEYBOARD
 from app.database.session import SessionLocal
 from app.database.repository import (
     create_task_from_parsed,
@@ -20,6 +20,10 @@ from app.database.repository import (
     get_user_profile,
     get_user_schedules,
     get_task_by_id,
+    delete_schedule_by_id,
+    delete_memory_by_id,
+    get_schedule_by_id,
+    get_memory_by_id,
 )
 from app.utils.datetime_utils import now_local, start_end_of_day, start_end_of_week, format_remaining_time
 
@@ -58,14 +62,21 @@ async def _send_memory(update: Update) -> None:
         return
 
     if not memories:
-        await chat.send_message("🧠 Memori & Preferensi:\nBelum ada memory/preferensi yang tersimpan.")
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Menu Utama", callback_data="back_main")]])
+        await chat.send_message("🧠 Memori & Preferensi:\nBelum ada memory/preferensi yang tersimpan.", reply_markup=keyboard)
         return
 
     lines = ["🧠 Memory yang tersimpan:"]
     for idx, memory in enumerate(memories, start=1):
         lines.append(f"{idx}. [{memory.category}] {memory.content}")
 
-    await chat.send_message("\n".join(lines))
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🗑️ Hapus Memori", callback_data="list_delete_memories")],
+            [InlineKeyboardButton("🔙 Menu Utama", callback_data="back_main")]
+        ]
+    )
+    await chat.send_message("\n".join(lines), reply_markup=keyboard)
 
 
 async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -87,12 +98,71 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
         chat = update.effective_chat
         if chat:
             await chat.send_message(HELP_MESSAGE, reply_markup=MAIN_INLINE_KEYBOARD)
-    elif data == "view_schedule":
-        await _send_schedule(update)
-    elif data == "back_main":
+    elif data == "menu_add":
+        await query.message.edit_text("Pilih data yang ingin kamu tambahkan di bawah ini: 👇", reply_markup=ADD_INLINE_KEYBOARD)
+    elif data == "menu_check":
+        await query.message.edit_text("Pilih data yang ingin kamu cek di bawah ini: 👇", reply_markup=CHECK_INLINE_KEYBOARD)
+    elif data == "add_task_prompt":
+        from telegram import ForceReply
         chat = update.effective_chat
         if chat:
-            await chat.send_message(START_MESSAGE, reply_markup=MAIN_INLINE_KEYBOARD)
+            await chat.send_message(
+                "Ketik tugas baru kamu di bawah ini (contoh: tugas ASD dikumpul jumat jam 8 malam):",
+                reply_markup=ForceReply(selective=True)
+            )
+    elif data == "add_schedule_prompt":
+        from telegram import ForceReply
+        chat = update.effective_chat
+        if chat:
+            await chat.send_message(
+                "Ketik jadwal kuliah baru kamu di bawah ini (contoh: jadwal kuliah Sistem Operasi setiap senin jam 8 di GKU 101):",
+                reply_markup=ForceReply(selective=True)
+            )
+    elif data == "add_memory_prompt":
+        from telegram import ForceReply
+        chat = update.effective_chat
+        if chat:
+            await chat.send_message(
+                "Ketik catatan atau memori baru kamu di bawah ini (contoh: preferensi diingatkan H-1 sebelum deadline):",
+                reply_markup=ForceReply(selective=True)
+            )
+    elif data == "view_schedule":
+        await _send_schedule(update)
+    elif data == "list_delete_schedules":
+        user_id = update.effective_user.id
+        with SessionLocal() as db:
+            schedules = get_user_schedules(db, user_id)
+
+        if not schedules:
+            await update.effective_chat.send_message("Tidak ada jadwal kuliah untuk dihapus.")
+            return
+
+        buttons = []
+        for s in schedules:
+            day_str = f" ({s.day_of_week})" if s.day_of_week else ""
+            buttons.append([InlineKeyboardButton(f"🗑️ {s.course}{day_str}", callback_data=f"delschedact_{s.id}")])
+        buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="view_schedule")])
+
+        await update.effective_chat.send_message(
+            "👇 Klik jadwal kuliah yang ingin dihapus:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+    elif data.startswith("delschedact_"):
+        schedule_id = int(data.split("_")[1])
+        with SessionLocal() as db:
+            sched = get_schedule_by_id(db, schedule_id)
+            if sched:
+                course_title = sched.course
+                delete_schedule_by_id(db, schedule_id)
+            else:
+                course_title = "jadwal"
+
+        await update.effective_chat.send_message(
+            f"🗑️ Jadwal kuliah {course_title} berhasil dihapus."
+        )
+        await _send_schedule(update)
+    elif data == "back_main":
+        await query.message.edit_text(START_MESSAGE, reply_markup=MAIN_INLINE_KEYBOARD)
     elif data.startswith("refresh_"):
         period = data.split("_")[1]
         await _send_tasks_for_period(update, period)
@@ -207,9 +277,24 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     text = update.message.text
     now = now_local()
 
+    # Check if this message is a reply to one of our ForceReply prompts
+    reply_to = update.message.reply_to_message
+    forced_intent = None
+    if reply_to and reply_to.text:
+        reply_text = reply_to.text
+        if "Ketik tugas baru kamu" in reply_text:
+            forced_intent = "create_task"
+        elif "Ketik jadwal kuliah baru kamu" in reply_text:
+            forced_intent = "create_schedule"
+        elif "Ketik catatan atau memori baru kamu" in reply_text:
+            forced_intent = "save_memory"
+
     await update.message.chat.send_action(action="typing")
 
     parsed = parse_message(text=text, user_id=user_id, now=now)
+    if forced_intent:
+        parsed["intent"] = forced_intent
+
     intent = parsed.get("intent", "general_chat")
 
     with SessionLocal() as db:
@@ -373,8 +458,10 @@ async def _send_schedule(update: Update) -> None:
         schedules = get_user_schedules(db, user_id)
 
     if not schedules:
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Menu Utama", callback_data="back_main")]])
         await chat.send_message(
-            "📅 Jadwal Kuliah:\nKamu belum mencatat jadwal kuliah apa pun. Yuk catat dengan mengetik:\n\"Jadwal kuliah ASD setiap Senin jam 8 di GKU 101\""
+            "📅 Jadwal Kuliah:\nKamu belum mencatat jadwal kuliah apa pun. Yuk catat dengan mengetik:\n\"Jadwal kuliah ASD setiap Senin jam 8 di GKU 101\"",
+            reply_markup=keyboard
         )
         return
 
@@ -390,4 +477,10 @@ async def _send_schedule(update: Update) -> None:
         room_str = f" @ {s.room}" if s.room else ""
         lines.append(f"  • {s.course} ({time_str}){room_str}")
 
-    await chat.send_message("\n".join(lines))
+    keyboard = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🗑️ Hapus Jadwal", callback_data="list_delete_schedules")],
+            [InlineKeyboardButton("🔙 Menu Utama", callback_data="back_main")]
+        ]
+    )
+    await chat.send_message("\n".join(lines), reply_markup=keyboard)

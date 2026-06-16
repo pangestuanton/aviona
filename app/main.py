@@ -35,7 +35,6 @@ async def main() -> None:
             BotCommand("tomorrow", "Tampilkan tugas besok"),
             BotCommand("week", "Tampilkan tugas minggu ini"),
             BotCommand("schedule", "Tampilkan jadwal kuliah mingguan"),
-            BotCommand("memory", "Tampilkan memori & preferensi belajar"),
             BotCommand("help", "Tampilkan bantuan penggunaan"),
         ])
 
