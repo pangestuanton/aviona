@@ -92,7 +92,7 @@ pip install -r requirements.txt
 Salin file `.env.example` menjadi `.env` dan lengkapi variabel berikut:
 ```env
 TELEGRAM_BOT_TOKEN=token_bot_telegram_dari_botfather
-OPENAI_API_KEY=api_key_openai_atau_openrouter
+OPENROUTER_API_KEY=api_key_openai_atau_openrouter
 
 # Konfigurasi AI Provider (Opsional, bawaan: OpenRouter)
 AI_BASE_URL=https://openrouter.ai/api/v1

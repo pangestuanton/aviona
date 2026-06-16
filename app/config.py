@@ -18,7 +18,7 @@ def clean_api_key(key: str | None) -> str | None:
 @dataclass(frozen=True)
 class Settings:
     telegram_bot_token: str
-    openai_api_key: str | None
+    openrouter_api_key: str | None
     ai_base_url: str | None
     ai_model: str
     timezone: str
@@ -29,7 +29,7 @@ class Settings:
 def get_settings() -> Settings:
     return Settings(
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip().strip('"').strip("'"),
-        openai_api_key=clean_api_key(os.getenv("OPENAI_API_KEY")),
+        openrouter_api_key=clean_api_key(os.getenv("OPENROUTER_API_KEY")),
         ai_base_url=os.getenv("AI_BASE_URL") or None,
         ai_model=os.getenv("AI_MODEL", "google/gemini-2.5-flash"),
         timezone=os.getenv("APP_TIMEZONE", "Asia/Jakarta"),

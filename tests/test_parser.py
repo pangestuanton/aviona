@@ -23,7 +23,7 @@ def setup_db():
 def mock_settings():
     return Settings(
         telegram_bot_token="test_token",
-        openai_api_key="test_api_key",
+        openrouter_api_key="test_api_key",
         ai_base_url="https://api.openai.com/v1",
         ai_model="gpt-4",
         timezone="Asia/Jakarta",
@@ -39,7 +39,7 @@ def test_generate_chat_response_no_key(mock_openai_class, mock_get_settings):
     # Set settings with no API key
     mock_get_settings.return_value = Settings(
         telegram_bot_token="test_token",
-        openai_api_key=None,
+        openrouter_api_key=None,
         ai_base_url=None,
         ai_model="gpt-4",
         timezone="Asia/Jakarta",

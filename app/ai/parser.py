@@ -50,14 +50,14 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
         # Save user message to database history
         save_chat_message(db, user_id=user_id, role="user", content=message_text)
         
-        if not settings.openai_api_key:
-            reply = "Maaf, API Key AI belum dikonfigurasi. Silakan atur OPENAI_API_KEY di file .env Anda."
+        if not settings.openrouter_api_key:
+            reply = "Maaf, API Key AI belum dikonfigurasi. Silakan atur OPENROUTER_API_KEY di file .env Anda."
             save_chat_message(db, user_id=user_id, role="assistant", content=reply)
             return reply
             
         try:
             client = OpenAI(
-                api_key=settings.openai_api_key,
+                api_key=settings.openrouter_api_key,
                 base_url=settings.ai_base_url,
             )
             
@@ -87,7 +87,7 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
             
         except Exception as exc:
             print(f"Error in generate_chat_response: {exc}")
-            key_str = str(settings.openai_api_key) if settings.openai_api_key else ""
+            key_str = str(settings.openrouter_api_key) if settings.openrouter_api_key else ""
             if len(key_str) > 8:
                 sanitized_key = f"{key_str[:5]}...{key_str[-5:]} (len={len(key_str)})"
             else:
