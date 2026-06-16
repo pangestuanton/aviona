@@ -88,10 +88,10 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
                 reply = re.sub(r'\[MEMORY:\s*.*?\]', '', reply, flags=re.IGNORECASE | re.DOTALL).strip()
             
             # Extract timed reminders from reply: format [REMINDER: YYYY-MM-DD HH:MM:SS | message]
-            reminder_match = re.search(r'\[REMINDER:\s*([^|]+?)\s*\|\s*(.*?)\]', reply, re.IGNORECASE | re.DOTALL)
-            if reminder_match:
-                time_str = reminder_match.group(1).strip()
-                reminder_msg = reminder_match.group(2).strip()
+            reminder_matches = re.finditer(r'\[REMINDER:\s*([^|]+?)\s*\|\s*(.*?)\]', reply, re.IGNORECASE | re.DOTALL)
+            for match in reminder_matches:
+                time_str = match.group(1).strip()
+                reminder_msg = match.group(2).strip()
                 try:
                     local_dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
                     utc_dt = local_to_utc(local_dt, profile.timezone)
@@ -99,8 +99,9 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
                         save_timed_reminder(db, user_id=user_id, remind_at_utc=utc_dt, message=reminder_msg)
                 except Exception as e:
                     print(f"Failed to parse reminder time '{time_str}': {e}")
-                # Strip the reminder block from the user-facing response
-                reply = re.sub(r'\[REMINDER:\s*[^|]+?\s*\|\s*.*?\]', '', reply, flags=re.IGNORECASE | re.DOTALL).strip()
+            
+            # Strip all reminder blocks from the user-facing response
+            reply = re.sub(r'\[REMINDER:\s*[^|]+?\s*\|\s*.*?\]', '', reply, flags=re.IGNORECASE | re.DOTALL).strip()
             
             # Save assistant reply to database history
             save_chat_message(db, user_id=user_id, role="assistant", content=reply)
