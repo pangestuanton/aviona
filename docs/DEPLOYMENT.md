@@ -40,22 +40,30 @@ Berikut adalah 3 opsi deployment terbaik:
 
 ## Opsi 2: Render (Free Tier - Alternatif Gratis)
 
-[Render.com](https://render.com) menawarkan opsi **Background Worker** gratis yang cocok untuk bot Telegram berbasis polling.
+[Render.com](https://render.com) menawarkan layanan **Web Service** gratis. Bot ini telah dilengkapi dengan dummy HTTP health-check server agar kompatibel dengan port binding Render Free Tier.
 
 ### Langkah-langkah:
 1. **Buat Akun Render**: Masuk ke Render menggunakan akun GitHub Anda.
-2. **Buat Background Worker**:
-   - Klik **New +** -> **Background Worker**.
+2. **Buat Web Service**:
+   - Klik **New +** -> **Web Service**.
    - Hubungkan repositori GitHub bot Anda.
 3. **Konfigurasi Build & Start Command**:
+   - **Name**: `aviona-bot`
    - **Runtime**: `Python`
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `python run.py`
+   - **Instance Type**: `Free`
 4. **Tambahkan Environment Variables**:
-   - Di bagian **Environment**, tambahkan seluruh isi `.env` (Token Telegram, API Key OpenAI, Timezone, dll).
-5. **Database Persisten**:
-   - Jika menggunakan SQLite default, Anda harus mengaitkan **Render Disk** (volume persisten) ke direktori database Anda agar tugas yang disimpan tidak hilang ketika server ter-restart/redeploy.
-   - Caranya: Arahkan `DATABASE_URL` ke `/var/data/study_bot.db` dan pasang (mount) Render Disk di path `/var/data`.
+   - Di bagian **Environment**, tambahkan seluruh variabel dari file `.env`:
+     - `TELEGRAM_BOT_TOKEN`
+     - `OPENROUTER_API_KEY`
+     - `AI_BASE_URL`
+     - `AI_MODEL` (set ke `openrouter/free`)
+     - `APP_TIMEZONE` (set ke `Asia/Jakarta`)
+     - `DATABASE_URL` (jika menggunakan SQLite default: `sqlite:///study_bot.db`)
+5. **Database Jangka Panjang & Uptime (Catatan Free Tier)**:
+   - **Menjaga Bot Tetap Aktif**: Render Free Tier akan menidurkan (*spin down*) Web Service jika tidak menerima HTTP request selama 15 menit. Agar bot Anda tidak tidur, gunakan layanan ping gratis seperti [UptimeRobot](https://uptimerobot.com) untuk menembak URL Web Service Render Anda (`https://aviona-bot.onrender.com`) setiap 5-10 menit sekali.
+   - **Penyimpanan SQLite**: Karena filesystem Render Free Tier bersifat *ephemeral* (kembali ke kondisi awal saat server di-deploy ulang atau restart), data chat history & pengingat lokal SQLite akan terhapus jika terjadi restart. Untuk database persisten gratis, Anda sangat disarankan untuk menggunakan database PostgreSQL eksternal gratis (misalnya dari [Supabase](https://supabase.com) atau [Neon](https://neon.tech)) lalu masukkan URL database eksternal tersebut ke variabel `DATABASE_URL`.
 
 ---
 

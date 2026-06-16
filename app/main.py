@@ -1,6 +1,8 @@
 import os
 import sys
 import asyncio
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # Fix sys.path to allow absolute imports when running app/main.py directly
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -60,8 +62,29 @@ async def reminder_worker(application) -> None:
             print(f"Error in reminder_worker: {e}")
 
 
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+        
+    def log_message(self, format, *args):
+        return
+
+
+def run_dummy_server():
+    port = int(os.getenv("PORT", "8080"))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    print(f"Dummy health check server running on port {port}...")
+    server.serve_forever()
+
+
 async def main() -> None:
     settings = get_settings()
+
+    # Start dummy HTTP server for Render compatibility
+    threading.Thread(target=run_dummy_server, daemon=True).start()
 
     if not settings.telegram_bot_token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN belum diisi di file .env")
