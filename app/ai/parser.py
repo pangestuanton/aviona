@@ -86,6 +86,18 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
             
         except Exception as exc:
             print(f"Error in generate_chat_response: {exc}")
-            fallback_reply = f"Duh, maaf ya... Koneksi AI-ku sedang terganggu. Coba kirim pesan lagi sebentar lagi!\n\n(Detail Error: {str(exc)})"
+            key_str = str(settings.openai_api_key) if settings.openai_api_key else ""
+            if len(key_str) > 8:
+                sanitized_key = f"{key_str[:5]}...{key_str[-5:]} (len={len(key_str)})"
+            else:
+                sanitized_key = f"{key_str} (len={len(key_str)})"
+            
+            fallback_reply = (
+                f"Duh, maaf ya... Koneksi AI-ku sedang terganggu. Coba kirim pesan lagi sebentar lagi!\n\n"
+                f"<b>Detail Error:</b> {str(exc)}\n"
+                f"<b>Sanitized Key:</b> <code>{sanitized_key}</code>\n"
+                f"<b>Base URL:</b> <code>{settings.ai_base_url}</code>\n"
+                f"<b>Model:</b> <code>{settings.ai_model}</code>"
+            )
             save_chat_message(db, user_id=user_id, role="assistant", content=fallback_reply)
             return fallback_reply
