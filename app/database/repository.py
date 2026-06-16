@@ -213,3 +213,30 @@ def get_user_profile(db: Session, user_id: int) -> UserProfile:
         db.commit()
         db.refresh(profile)
     return profile
+
+
+def get_user_schedules(db: Session, user_id: int) -> list[CourseSchedule]:
+    from sqlalchemy import case
+    return (
+        db.query(CourseSchedule)
+        .filter(CourseSchedule.user_id == user_id)
+        .order_by(
+            case(
+                (CourseSchedule.day_of_week == "senin", 1),
+                (CourseSchedule.day_of_week == "selasa", 2),
+                (CourseSchedule.day_of_week == "rabu", 3),
+                (CourseSchedule.day_of_week == "kamis", 4),
+                (CourseSchedule.day_of_week == "jumat", 5),
+                (CourseSchedule.day_of_week == "sabtu", 6),
+                (CourseSchedule.day_of_week == "minggu", 7),
+                else_=8
+            ),
+            CourseSchedule.start_time.asc()
+        )
+        .all()
+    )
+
+
+def get_task_by_id(db: Session, task_id: int) -> Task | None:
+    return db.query(Task).filter(Task.id == task_id).first()
+

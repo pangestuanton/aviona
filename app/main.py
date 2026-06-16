@@ -13,6 +13,7 @@ from app.bot.handlers import (
     memory_handler,
     message_handler,
     callback_query_handler,
+    schedule_handler,
 )
 from app.scheduler.reminder_jobs import check_due_reminders
 
@@ -33,6 +34,7 @@ async def main() -> None:
             BotCommand("today", "Tampilkan tugas hari ini"),
             BotCommand("tomorrow", "Tampilkan tugas besok"),
             BotCommand("week", "Tampilkan tugas minggu ini"),
+            BotCommand("schedule", "Tampilkan jadwal kuliah mingguan"),
             BotCommand("memory", "Tampilkan memori & preferensi belajar"),
             BotCommand("help", "Tampilkan bantuan penggunaan"),
         ])
@@ -44,6 +46,7 @@ async def main() -> None:
     app.add_handler(CommandHandler("today", today_handler))
     app.add_handler(CommandHandler("tomorrow", tomorrow_handler))
     app.add_handler(CommandHandler("week", week_handler))
+    app.add_handler(CommandHandler("schedule", schedule_handler))
     app.add_handler(CommandHandler("memory", memory_handler))
     app.add_handler(CallbackQueryHandler(callback_query_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))

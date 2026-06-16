@@ -17,9 +17,10 @@ MAIN_INLINE_KEYBOARD = InlineKeyboardMarkup(
         ],
         [
             InlineKeyboardButton("🗓️ Minggu Ini", callback_data="tasks_week"),
-            InlineKeyboardButton("🧠 Memori", callback_data="tasks_memory"),
+            InlineKeyboardButton("📅 Jadwal Kuliah", callback_data="view_schedule"),
         ],
         [
+            InlineKeyboardButton("🧠 Memori", callback_data="tasks_memory"),
             InlineKeyboardButton("ℹ️ Bantuan", callback_data="help_info"),
         ],
     ]

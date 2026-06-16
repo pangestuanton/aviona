@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
 from app.ai.parser import parse_message
@@ -18,6 +18,8 @@ from app.database.repository import (
     mark_task_done_by_text,
     get_tasks_between,
     get_user_profile,
+    get_user_schedules,
+    get_task_by_id,
 )
 from app.utils.datetime_utils import now_local, start_end_of_day, start_end_of_week, format_remaining_time
 
@@ -85,6 +87,123 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
         chat = update.effective_chat
         if chat:
             await chat.send_message(HELP_MESSAGE, reply_markup=MAIN_INLINE_KEYBOARD)
+    elif data == "view_schedule":
+        await _send_schedule(update)
+    elif data == "back_main":
+        chat = update.effective_chat
+        if chat:
+            await chat.send_message(START_MESSAGE, reply_markup=MAIN_INLINE_KEYBOARD)
+    elif data.startswith("refresh_"):
+        period = data.split("_")[1]
+        await _send_tasks_for_period(update, period)
+    elif data.startswith("listdone_"):
+        period = data.split("_")[1]
+        user_id = update.effective_user.id
+        now = now_local()
+
+        if period == "today":
+            start, end = start_end_of_day(now)
+        elif period == "tomorrow":
+            tomorrow = now + timedelta(days=1)
+            start, end = start_end_of_day(tomorrow)
+        else:
+            start, end = start_end_of_week(now)
+
+        with SessionLocal() as db:
+            tasks = get_tasks_between(db, user_id, start, end)
+
+        pending_tasks = [t for t in tasks if t.status == "pending"]
+
+        if not pending_tasks:
+            await update.effective_chat.send_message("Tidak ada tugas pending untuk diselesaikan! 🎉")
+            return
+
+        buttons = []
+        for t in pending_tasks:
+            buttons.append([InlineKeyboardButton(f"✅ {t.title}", callback_data=f"doneact_{t.id}_{period}")])
+        buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data=f"refresh_{period}")])
+
+        await update.effective_chat.send_message(
+            "👇 *Klik tugas yang ingin diselesaikan:*",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="Markdown"
+        )
+    elif data.startswith("listdel_"):
+        period = data.split("_")[1]
+        user_id = update.effective_user.id
+        now = now_local()
+
+        if period == "today":
+            start, end = start_end_of_day(now)
+        elif period == "tomorrow":
+            tomorrow = now + timedelta(days=1)
+            start, end = start_end_of_day(tomorrow)
+        else:
+            start, end = start_end_of_week(now)
+
+        with SessionLocal() as db:
+            tasks = get_tasks_between(db, user_id, start, end)
+
+        active_tasks = [t for t in tasks if t.status != "deleted"]
+
+        if not active_tasks:
+            await update.effective_chat.send_message("Tidak ada tugas untuk dihapus.")
+            return
+
+        buttons = []
+        for t in active_tasks:
+            buttons.append([InlineKeyboardButton(f"🗑️ {t.title}", callback_data=f"delact_{t.id}_{period}")])
+        buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data=f"refresh_{period}")])
+
+        await update.effective_chat.send_message(
+            "👇 *Klik tugas yang ingin dihapus:*",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="Markdown"
+        )
+    elif data.startswith("doneact_"):
+        _, task_id_str, period = data.split("_")
+        task_id = int(task_id_str)
+
+        with SessionLocal() as db:
+            task = get_task_by_id(db, task_id)
+            if task:
+                task.status = "done"
+                import datetime as dt_mod
+                task.completed_at = dt_mod.datetime.utcnow()
+                for r in task.reminders:
+                    r.is_active = False
+                db.commit()
+                task_title = task.title
+            else:
+                task_title = "tugas"
+
+        await update.effective_chat.send_message(
+            f"🎉 *Keren!* Tugas *{task_title}* berhasil diselesaikan! Aviona bangga! 🚀",
+            parse_mode="Markdown"
+        )
+        await _send_tasks_for_period(update, period)
+    elif data.startswith("delact_"):
+        _, task_id_str, period = data.split("_")
+        task_id = int(task_id_str)
+
+        with SessionLocal() as db:
+            task = get_task_by_id(db, task_id)
+            if task:
+                task.status = "deleted"
+                import datetime as dt_mod
+                task.deleted_at = dt_mod.datetime.utcnow()
+                for r in task.reminders:
+                    r.is_active = False
+                db.commit()
+                task_title = task.title
+            else:
+                task_title = "tugas"
+
+        await update.effective_chat.send_message(
+            f"🗑️ Tugas *{task_title}* berhasil dihapus dari daftar.",
+            parse_mode="Markdown"
+        )
+        await _send_tasks_for_period(update, period)
 
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -208,7 +327,15 @@ async def _send_tasks_for_period(update: Update, period: str) -> None:
         return
 
     if not tasks:
-        await chat.send_message(f"📋 *{title}*:\nBelum ada tugas. 🎉", parse_mode="Markdown")
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("🔄 Refresh", callback_data=f"refresh_{period}"),
+                    InlineKeyboardButton("🔙 Menu Utama", callback_data="back_main"),
+                ]
+            ]
+        )
+        await chat.send_message(f"📋 *{title}*:\nBelum ada tugas. 🎉", reply_markup=keyboard, parse_mode="Markdown")
         return
 
     lines = [f"📋 *{title}*:"]
@@ -223,4 +350,52 @@ async def _send_tasks_for_period(update: Update, period: str) -> None:
             f"   ⏰ Deadline: {deadline_str}{time_rem_str}"
         )
 
-    await chat.send_message("\n\n".join(lines), parse_mode="Markdown")
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("✅ Selesaikan Tugas", callback_data=f"listdone_{period}"),
+                InlineKeyboardButton("🗑️ Hapus Tugas", callback_data=f"listdel_{period}"),
+            ],
+            [
+                InlineKeyboardButton("🔄 Refresh", callback_data=f"refresh_{period}"),
+                InlineKeyboardButton("🔙 Menu Utama", callback_data="back_main"),
+            ]
+        ]
+    )
+
+    await chat.send_message("\n\n".join(lines), reply_markup=keyboard, parse_mode="Markdown")
+
+
+async def schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await _send_schedule(update)
+
+
+async def _send_schedule(update: Update) -> None:
+    user_id = update.effective_user.id
+    chat = update.effective_chat
+    if not chat:
+        return
+
+    with SessionLocal() as db:
+        schedules = get_user_schedules(db, user_id)
+
+    if not schedules:
+        await chat.send_message(
+            "📅 *Jadwal Kuliah*:\nKamu belum mencatat jadwal kuliah apa pun. Yuk catat dengan mengetik:\n_\"Jadwal kuliah ASD setiap Senin jam 8 di GKU 101\"_",
+            parse_mode="Markdown"
+        )
+        return
+
+    lines = ["📅 *Jadwal Kuliah Kamu:*"]
+    current_day = None
+    for s in schedules:
+        day_title = (s.day_of_week or "Lainnya").capitalize()
+        if day_title != current_day:
+            current_day = day_title
+            lines.append(f"\n📌 *{current_day}*")
+
+        time_str = f"{s.start_time or ''} - {s.end_time or ''}" if s.start_time else "Waktu belum diset"
+        room_str = f" @ {s.room}" if s.room else ""
+        lines.append(f"  • *{s.course}* ({time_str}){room_str}")
+
+    await chat.send_message("\n".join(lines), parse_mode="Markdown")
