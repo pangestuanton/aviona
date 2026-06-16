@@ -2,9 +2,9 @@ from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardBu
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
-        ["/today", "/tomorrow"],
-        ["/week", "/schedule"],
-        ["/help"],
+        ["📋 Tugas Hari Ini", "📅 Tugas Besok"],
+        ["🗓️ Tugas Minggu Ini", "📅 Jadwal Kuliah"],
+        ["🧹 Bersihkan Chat", "ℹ️ Bantuan"],
     ],
     resize_keyboard=True,
 )
@@ -16,6 +16,7 @@ MAIN_INLINE_KEYBOARD = InlineKeyboardMarkup(
             InlineKeyboardButton("🔍 Cek Data", callback_data="menu_check"),
         ],
         [
+            InlineKeyboardButton("🧹 Bersihkan Chat", callback_data="clear_chat"),
             InlineKeyboardButton("ℹ️ Bantuan", callback_data="help_info"),
         ],
     ]

@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 from app.ai.parser import parse_message
 from app.ai.memory import save_memory, set_user_preference, list_memories
 from app.bot.messages import START_MESSAGE, HELP_MESSAGE
-from app.bot.keyboards import MAIN_INLINE_KEYBOARD, ADD_INLINE_KEYBOARD, CHECK_INLINE_KEYBOARD
+from app.bot.keyboards import MAIN_KEYBOARD, MAIN_INLINE_KEYBOARD, ADD_INLINE_KEYBOARD, CHECK_INLINE_KEYBOARD
 from app.database.session import SessionLocal
 from app.database.repository import (
     create_task_from_parsed,
@@ -40,6 +40,10 @@ from app.utils.datetime_utils import (
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
+        await update.message.reply_text(
+            "Selamat datang! Menu tombol di bawah ini sekarang aktif untuk membantumu berinteraksi tanpa mengetik. 👇",
+            reply_markup=MAIN_KEYBOARD
+        )
         await update.message.reply_text(START_MESSAGE, reply_markup=MAIN_INLINE_KEYBOARD)
     except Exception as exc:
         print(f"Error in start_handler: {exc}")
@@ -204,6 +208,24 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
                 else:
                     await query.answer("Memori tidak ditemukan.", show_alert=True)
             await _send_memory(update)
+        elif data == "clear_chat":
+            chat_id = update.effective_chat.id
+            current_message_id = query.message.message_id
+            await query.answer("🧹 Sedang membersihkan chat...", show_alert=False)
+
+            import asyncio
+            tasks = []
+            for msg_id in range(current_message_id, max(1, current_message_id - 80), -1):
+                tasks.append(context.bot.delete_message(chat_id=chat_id, message_id=msg_id))
+
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="🧹 Chat berhasil dibersihkan! Silakan pilih menu di bawah ini untuk mulai kembali: 👇",
+                reply_markup=MAIN_INLINE_KEYBOARD
+            )
+            return
         elif data == "back_main":
             await query.message.edit_text(START_MESSAGE, reply_markup=MAIN_INLINE_KEYBOARD)
             await query.answer()

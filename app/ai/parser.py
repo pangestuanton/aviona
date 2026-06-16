@@ -99,6 +99,24 @@ def _parse_single_line_fallback(text: str, now: datetime) -> dict[str, Any]:
         result["new_value"] = tz_word or text_clean
         return result
 
+    # Standardize bottom keyboard button & commands matches
+    if any(x == lower_clean for x in ["jadwal kuliah", "lihat jadwal", "tampilkan jadwal", "cek jadwal", "daftar jadwal", "/schedule"]):
+        result["intent"] = "list_schedules"
+        result["confidence"] = 0.8
+        return result
+
+    if any(x in lower_clean for x in ["bersihkan chat", "clear chat", "hapus semua pesan", "/clear"]):
+        result["intent"] = "clear_chat"
+        result["confidence"] = 0.8
+        return result
+
+    if any(x in lower_clean for x in ["bantuan", "/help", "help"]):
+        result["intent"] = "general_chat"
+        from app.bot.messages import HELP_MESSAGE
+        result["reply"] = HELP_MESSAGE
+        result["confidence"] = 0.8
+        return result
+
     if any(x in lower_clean for x in ["lebih suka", "biasanya", "prefer", "preferensi"]):
         result["intent"] = "set_preference"
         result["memory_content"] = text_clean
