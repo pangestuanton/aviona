@@ -65,6 +65,7 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
                 model=settings.ai_model,
                 messages=messages,
                 temperature=0.7,
+                max_tokens=1500,
             )
             
             reply = response.choices[0].message.content or ""
