@@ -31,7 +31,7 @@ def get_settings() -> Settings:
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip().strip('"').strip("'"),
         openai_api_key=clean_api_key(os.getenv("OPENAI_API_KEY")),
         ai_base_url=os.getenv("AI_BASE_URL") or None,
-        ai_model=os.getenv("AI_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free"),
+        ai_model=os.getenv("AI_MODEL", "meta-llama/llama-3.1-8b-instruct:free"),
         timezone=os.getenv("APP_TIMEZONE", "Asia/Jakarta"),
         database_url=os.getenv("DATABASE_URL", "sqlite:///study_bot.db"),
         reminder_check_interval_seconds=int(os.getenv("REMINDER_CHECK_INTERVAL_SECONDS", "60")),
