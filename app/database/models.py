@@ -19,64 +19,20 @@ class UserProfile(Base):
     major: Mapped[str | None] = mapped_column(String(255), nullable=True)
     semester: Mapped[int | None] = mapped_column(Integer, nullable=True)
     timezone: Mapped[str] = mapped_column(String(100), default="Asia/Jakarta")
+    mode: Mapped[str] = mapped_column(String(50), default="standard")  # standard, tutor, socratic, coder, summarizer
     reminder_preference: Mapped[str] = mapped_column(Text, default="H-1 dan 2 jam sebelum deadline")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
 
-class Task(Base):
-    __tablename__ = "tasks"
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, index=True)
-    title: Mapped[str] = mapped_column(Text)
-    course: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
-    status: Mapped[str] = mapped_column(String(50), default="pending")  # pending, done, deleted
-    priority: Mapped[str] = mapped_column(String(50), default="normal")
-    raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    role: Mapped[str] = mapped_column(String(50))  # user, assistant
+    content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-    reminders: Mapped[list["Reminder"]] = relationship(
-        back_populates="task",
-        cascade="all, delete-orphan",
-    )
-
-
-class Reminder(Base):
-    __tablename__ = "reminders"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id"), nullable=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
-    remind_at: Mapped[datetime] = mapped_column(DateTime, index=True)
-    message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    sent: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
-
-    task: Mapped[Task | None] = relationship(back_populates="reminders")
-
-
-class CourseSchedule(Base):
-    __tablename__ = "course_schedules"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
-    course: Mapped[str] = mapped_column(String(255))
-    day_of_week: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    start_time: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    end_time: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    room: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    lecturer: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
 
 class Memory(Base):

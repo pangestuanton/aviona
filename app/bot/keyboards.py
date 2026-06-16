@@ -1,32 +1,45 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
+# Persistent bottom reply keyboard
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
-        ["📋 Tugas Hari Ini", "📅 Tugas Besok"],
-        ["🗓️ Tugas Minggu Ini", "📅 Jadwal Kuliah"],
-        ["🧹 Bersihkan Chat", "ℹ️ Bantuan"],
+        ["🤖 Mode Belajar", "🧠 Memori Saya"],
+        ["🧹 Mulai Baru", "ℹ️ Bantuan"],
     ],
     resize_keyboard=True,
 )
 
+# Inline menu keyboard for the welcome message
 MAIN_INLINE_KEYBOARD = InlineKeyboardMarkup(
     [
         [
-            InlineKeyboardButton("➕ Tambah Data", callback_data="menu_add"),
-            InlineKeyboardButton("🔍 Cek Data", callback_data="menu_check"),
+            InlineKeyboardButton("🤖 Mode Belajar", callback_data="menu_mode"),
+            InlineKeyboardButton("🧠 Memori Saya", callback_data="menu_memory"),
         ],
         [
-            InlineKeyboardButton("🧹 Bersihkan Chat", callback_data="clear_chat"),
+            InlineKeyboardButton("🧹 Mulai Baru", callback_data="confirm_reset"),
             InlineKeyboardButton("ℹ️ Bantuan", callback_data="help_info"),
         ],
     ]
 )
 
-ADD_INLINE_KEYBOARD = InlineKeyboardMarkup(
+# Keyboard to select the learning persona
+MODE_INLINE_KEYBOARD = InlineKeyboardMarkup(
     [
         [
-            InlineKeyboardButton("📝 Tambah Tugas", callback_data="add_task_prompt"),
-            InlineKeyboardButton("📅 Tambah Jadwal", callback_data="add_schedule_prompt"),
+            InlineKeyboardButton("✨ Standar (Asisten Ramah)", callback_data="setmode_standard"),
+        ],
+        [
+            InlineKeyboardButton("📚 Tutor Disiplin (Ada Kuis)", callback_data="setmode_tutor"),
+        ],
+        [
+            InlineKeyboardButton("💡 Sokrates (Tanya Balik)", callback_data="setmode_socratic"),
+        ],
+        [
+            InlineKeyboardButton("💻 Programmer / Coder", callback_data="setmode_coder"),
+        ],
+        [
+            InlineKeyboardButton("📝 Summarizer (Peringkas)", callback_data="setmode_summarizer"),
         ],
         [
             InlineKeyboardButton("🔙 Kembali", callback_data="back_main"),
@@ -34,20 +47,15 @@ ADD_INLINE_KEYBOARD = InlineKeyboardMarkup(
     ]
 )
 
-CHECK_INLINE_KEYBOARD = InlineKeyboardMarkup(
+# Confirmation menu for resetting data
+RESET_CONFIRM_KEYBOARD = InlineKeyboardMarkup(
     [
         [
-            InlineKeyboardButton("📋 Tugas Hari Ini", callback_data="tasks_today"),
-            InlineKeyboardButton("📅 Tugas Besok", callback_data="tasks_tomorrow"),
-        ],
-        [
-            InlineKeyboardButton("🗓️ Tugas Minggu Ini", callback_data="tasks_week"),
-            InlineKeyboardButton("📅 Jadwal Kuliah", callback_data="view_schedule"),
+            InlineKeyboardButton("🧹 Bersihkan Riwayat Chat", callback_data="reset_history_act"),
+            InlineKeyboardButton("🧠 Lupakan Semua Memori", callback_data="reset_memory_act"),
         ],
         [
             InlineKeyboardButton("🔙 Kembali", callback_data="back_main"),
-        ],
+        ]
     ]
 )
-
-
