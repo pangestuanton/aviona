@@ -7,6 +7,8 @@ Kamu bisa chat aku pake bahasa santai, contohnya:
 📅 "Jadwal kuliah Sistem Operasi setiap Selasa jam 10:00 - 11:40 di Lab 2"
 🧠 "Aku lebih suka diingatkan H-1 dan 2 jam sebelum deadline"
 
+Catatan: Semua pencatatan waktu dan pengingat di bot ini menggunakan zona waktu WIB (Waktu Indonesia Barat).
+
 Pilih menu di bawah ini untuk mulai berinteraksi ya! 👇
 """
 
@@ -25,4 +27,6 @@ Kamu juga bisa kirim chat bebas:
 - "Hapus tugas ASD"
 - "Tugas Matematika Diskrit sudah selesai"
 - "Ganti deadline laporan SO jadi besok jam 9 malam"
+
+Catatan: Semua pencatatan waktu dan pengingat di bot ini menggunakan zona waktu WIB (Waktu Indonesia Barat).
 """
