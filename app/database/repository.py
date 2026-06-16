@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.database.models import Task, Reminder, CourseSchedule, Memory
+from app.utils.datetime_utils import local_to_utc, utc_to_local, utc_now
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -19,71 +20,86 @@ def _parse_dt(value: str | None) -> datetime | None:
     return None
 
 
-def create_task_from_parsed(db: Session, user_id: int, parsed: dict[str, Any], raw_text: str) -> Task:
+def create_task_from_parsed(db: Session, user_id: int, parsed: dict[str, Any], raw_text: str, timezone_name: str) -> Task:
     title = parsed.get("title") or parsed.get("description") or raw_text
-    deadline = _parse_dt(parsed.get("deadline") or parsed.get("event_time"))
+    deadline_local = _parse_dt(parsed.get("deadline") or parsed.get("event_time"))
+    deadline_utc = local_to_utc(deadline_local, timezone_name) if deadline_local else None
 
     task = Task(
         user_id=user_id,
         title=title,
         course=parsed.get("course"),
         description=parsed.get("description"),
-        deadline=deadline,
+        deadline=deadline_utc,
         priority=parsed.get("priority") or "normal",
         raw_text=raw_text,
     )
-    db.add(task)
-    db.flush()
+    
+    try:
+        db.add(task)
+        db.flush()
+        _create_reminders_for_task(db, task, parsed.get("reminders") or [], timezone_name)
+        db.commit()
+        db.refresh(task)
+        return task
+    except Exception:
+        db.rollback()
+        raise
 
-    _create_reminders_for_task(db, task, parsed.get("reminders") or [])
 
-    db.commit()
-    db.refresh(task)
-    return task
-
-
-def update_task_from_parsed(db: Session, user_id: int, parsed: dict[str, Any], raw_text: str) -> Task | None:
+def update_task_from_parsed(db: Session, user_id: int, parsed: dict[str, Any], raw_text: str, timezone_name: str) -> Task | None:
     target = parsed.get("target") or raw_text
     task = _find_task_by_keyword(db, user_id, target)
     if not task:
         return None
 
-    if parsed.get("title"):
-        task.title = parsed["title"]
-    if parsed.get("course"):
-        task.course = parsed["course"]
-    if parsed.get("description"):
-        task.description = parsed["description"]
-    
-    new_deadline = _parse_dt(parsed.get("deadline") or parsed.get("event_time") or parsed.get("new_value"))
-    if new_deadline:
-        task.deadline = new_deadline
-        # Recreate reminders if deadline changed
-        for r in task.reminders:
-            r.is_active = False
-        _create_reminders_for_task(db, task, parsed.get("reminders") or [])
-    
-    if parsed.get("priority"):
-        task.priority = parsed["priority"]
+    try:
+        if parsed.get("title"):
+            task.title = parsed["title"]
+        if parsed.get("course"):
+            task.course = parsed["course"]
+        if parsed.get("description"):
+            task.description = parsed["description"]
+        
+        new_deadline_local = _parse_dt(parsed.get("deadline") or parsed.get("event_time") or parsed.get("new_value"))
+        if new_deadline_local:
+            new_deadline_utc = local_to_utc(new_deadline_local, timezone_name)
+            task.deadline = new_deadline_utc
+            # Recreate reminders if deadline changed
+            for r in task.reminders:
+                r.is_active = False
+            _create_reminders_for_task(db, task, parsed.get("reminders") or [], timezone_name)
+        
+        if parsed.get("priority"):
+            task.priority = parsed["priority"]
 
-    db.commit()
-    db.refresh(task)
-    return task
+        db.commit()
+        db.refresh(task)
+        return task
+    except Exception:
+        db.rollback()
+        raise
 
 
-def _create_reminders_for_task(db: Session, task: Task, reminder_strs: list[str]) -> None:
+def _create_reminders_for_task(db: Session, task: Task, reminder_strs: list[str], timezone_name: str) -> None:
+    now_u = utc_now()
     for remind_str in reminder_strs:
-        remind_at = _parse_dt(remind_str)
-        if not remind_at:
+        remind_local = _parse_dt(remind_str)
+        if not remind_local:
             continue
-
-        reminder = Reminder(
-            task_id=task.id,
-            user_id=task.user_id,
-            remind_at=remind_at,
-            message=f"Pengingat: {task.title}",
-        )
-        db.add(reminder)
+        remind_utc = local_to_utc(remind_local, timezone_name)
+        if not remind_utc:
+            continue
+        
+        # Only add reminder if it is in the future
+        if remind_utc > now_u:
+            reminder = Reminder(
+                task_id=task.id,
+                user_id=task.user_id,
+                remind_at=remind_utc,
+                message=f"Pengingat: {task.title}",
+            )
+            db.add(reminder)
 
 
 def _find_task_by_keyword(db: Session, user_id: int, keyword: str) -> Task | None:
@@ -104,9 +120,11 @@ def _find_task_by_keyword(db: Session, user_id: int, keyword: str) -> Task | Non
     tasks = (
         db.query(Task)
         .filter(Task.user_id == user_id, Task.status != "deleted")
-        .order_by(Task.created_at.desc())
         .all()
     )
+
+    # Sort: pending first, then newest created_at first
+    tasks.sort(key=lambda t: (0 if t.status == "pending" else 1, -t.created_at.timestamp() if t.created_at else 0))
 
     # Try exact match first
     for task in tasks:
@@ -126,13 +144,17 @@ def delete_task_by_text(db: Session, user_id: int, target: str) -> int:
     if not task:
         return 0
 
-    task.status = "deleted"
-    task.deleted_at = datetime.utcnow()
-    for r in task.reminders:
-        r.is_active = False
+    try:
+        task.status = "deleted"
+        task.deleted_at = utc_now()
+        for r in task.reminders:
+            r.is_active = False
 
-    db.commit()
-    return 1
+        db.commit()
+        return 1
+    except Exception:
+        db.rollback()
+        raise
 
 
 def mark_task_done_by_text(db: Session, user_id: int, target: str) -> Task | None:
@@ -147,13 +169,17 @@ def mark_task_done_by_text(db: Session, user_id: int, target: str) -> Task | Non
         )
 
     if task:
-        task.status = "done"
-        task.completed_at = datetime.utcnow()
-        for r in task.reminders:
-            r.is_active = False
-        db.commit()
-        db.refresh(task)
-        return task
+        try:
+            task.status = "done"
+            task.completed_at = utc_now()
+            for r in task.reminders:
+                r.is_active = False
+            db.commit()
+            db.refresh(task)
+            return task
+        except Exception:
+            db.rollback()
+            raise
 
     return None
 
@@ -169,10 +195,14 @@ def create_schedule_from_parsed(db: Session, user_id: int, parsed: dict[str, Any
         lecturer=parsed.get("lecturer"),
         raw_text=raw_text,
     )
-    db.add(schedule)
-    db.commit()
-    db.refresh(schedule)
-    return schedule
+    try:
+        db.add(schedule)
+        db.commit()
+        db.refresh(schedule)
+        return schedule
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_tasks_between(db: Session, user_id: int, start: datetime, end: datetime) -> list[Task]:
@@ -209,9 +239,13 @@ def get_user_profile(db: Session, user_id: int) -> UserProfile:
     profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
     if not profile:
         profile = UserProfile(user_id=user_id)
-        db.add(profile)
-        db.commit()
-        db.refresh(profile)
+        try:
+            db.add(profile)
+            db.commit()
+            db.refresh(profile)
+        except Exception:
+            db.rollback()
+            raise
     return profile
 
 
@@ -246,8 +280,12 @@ def get_schedule_by_id(db: Session, schedule_id: int) -> CourseSchedule | None:
 
 
 def delete_schedule_by_id(db: Session, schedule_id: int) -> None:
-    db.query(CourseSchedule).filter(CourseSchedule.id == schedule_id).delete()
-    db.commit()
+    try:
+        db.query(CourseSchedule).filter(CourseSchedule.id == schedule_id).delete()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_memory_by_id(db: Session, memory_id: int) -> Memory | None:
@@ -255,6 +293,9 @@ def get_memory_by_id(db: Session, memory_id: int) -> Memory | None:
 
 
 def delete_memory_by_id(db: Session, memory_id: int) -> None:
-    db.query(Memory).filter(Memory.id == memory_id).delete()
-    db.commit()
-
+    try:
+        db.query(Memory).filter(Memory.id == memory_id).delete()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise

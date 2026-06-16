@@ -87,6 +87,17 @@ def parse_with_fallback(text: str, now: datetime) -> dict[str, Any]:
     lower = text.lower()
     result = _empty_result()
 
+    if any(x in lower for x in ["timezone", "zona waktu", "ubah wib", "ubah wita", "ubah wit"]):
+        result["intent"] = "set_timezone"
+        result["confidence"] = 0.8
+        tz_word = None
+        for word in ["wib", "wita", "wit", "jakarta", "makassar", "jayapura"]:
+            if word in lower:
+                tz_word = word
+                break
+        result["new_value"] = tz_word or text
+        return result
+
     if any(x in lower for x in ["lebih suka", "biasanya", "prefer", "preferensi"]):
         result["intent"] = "set_preference"
         result["memory_content"] = text
@@ -245,11 +256,13 @@ def parse_message(text: str, user_id: int, now: datetime) -> dict[str, Any]:
         )
 
         content = response.choices[0].message.content or "{}"
-        # Strip potential markdown code blocks
-        if content.startswith("```json"):
-            content = content.replace("```json", "", 1).replace("```", "", 1).strip()
-        elif content.startswith("```"):
-            content = content.replace("```", "", 1).replace("```", "", 1).strip()
+        
+        # Clean json content to extract only the valid JSON dictionary
+        content = content.strip()
+        start_idx = content.find('{')
+        end_idx = content.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            content = content[start_idx:end_idx + 1]
             
         parsed = json.loads(content)
 

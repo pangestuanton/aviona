@@ -18,7 +18,8 @@ Intents:
 8. delete_task: User wants to remove a task.
 9. save_memory: User wants the bot to remember a general fact.
 10. set_preference: User wants to set a specific bot behavior preference (e.g., reminder timing).
-11. general_chat: Greetings, questions, or random talk.
+11. set_timezone: User wants to change their timezone (e.g., WIB, WITA, WIT, Asia/Jakarta, Asia/Makassar, Asia/Jayapura).
+12. general_chat: Greetings, questions, or random talk.
 
 JSON Structure:
 {
@@ -37,7 +38,7 @@ JSON Structure:
   "priority": "low/normal/high",
   "memory_content": "The fact or preference to remember",
   "target": "The task title/course to search for when updating/deleting/marking done",
-  "new_value": "The new value for update_task (can be a date string or text)",
+  "new_value": "The new value for update_task or the parsed timezone name (e.g. 'Asia/Makassar') for set_timezone",
   "reply": "A brief, friendly Indonesian response for general_chat"
 }
 
@@ -47,5 +48,7 @@ Rules:
 - For 'reminders', if not specified, suggest H-1 (1 day before) and 2 hours before the deadline.
 - If the intent is 'update_task', put the task name in 'target' and the new info in the relevant field or 'new_value'.
 - If the message is 'tugas ASD sudah selesai', intent is 'mark_done' and target is 'ASD'.
+- If the message is 'ubah timezone ke wita', intent is 'set_timezone' and 'new_value' is 'Asia/Makassar' (or equivalent).
 - Always return VALID JSON. No extra text.
 """
+

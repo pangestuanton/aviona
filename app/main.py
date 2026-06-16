@@ -15,7 +15,7 @@ from app.bot.handlers import (
     callback_query_handler,
     schedule_handler,
 )
-from app.scheduler.reminder_jobs import check_due_reminders
+from app.scheduler.reminder_jobs import check_due_reminders, check_class_reminders
 
 
 async def main() -> None:
@@ -51,12 +51,24 @@ async def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
     scheduler = AsyncIOScheduler(timezone=settings.timezone)
+    
+    # Task reminder check job
     scheduler.add_job(
         check_due_reminders,
         "interval",
         seconds=settings.reminder_check_interval_seconds,
         args=[app.bot],
         id="check_due_reminders",
+        replace_existing=True,
+    )
+    
+    # Class schedule reminder check job
+    scheduler.add_job(
+        check_class_reminders,
+        "interval",
+        seconds=settings.reminder_check_interval_seconds,
+        args=[app.bot],
+        id="check_class_reminders",
         replace_existing=True,
     )
     
