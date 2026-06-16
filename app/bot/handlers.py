@@ -58,14 +58,14 @@ async def _send_memory(update: Update) -> None:
         return
 
     if not memories:
-        await chat.send_message("🧠 *Memori & Preferensi*:\nBelum ada memory/preferensi yang tersimpan.", parse_mode="Markdown")
+        await chat.send_message("🧠 Memori & Preferensi:\nBelum ada memory/preferensi yang tersimpan.")
         return
 
-    lines = ["🧠 *Memory yang tersimpan:*"]
+    lines = ["🧠 Memory yang tersimpan:"]
     for idx, memory in enumerate(memories, start=1):
-        lines.append(f"{idx}. `[{memory.category}]` {memory.content}")
+        lines.append(f"{idx}. [{memory.category}] {memory.content}")
 
-    await chat.send_message("\n".join(lines), parse_mode="Markdown")
+    await chat.send_message("\n".join(lines))
 
 
 async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -124,9 +124,8 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
         buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data=f"refresh_{period}")])
 
         await update.effective_chat.send_message(
-            "👇 *Klik tugas yang ingin diselesaikan:*",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="Markdown"
+            "👇 Klik tugas yang ingin diselesaikan:",
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
     elif data.startswith("listdel_"):
         period = data.split("_")[1]
@@ -156,9 +155,8 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
         buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data=f"refresh_{period}")])
 
         await update.effective_chat.send_message(
-            "👇 *Klik tugas yang ingin dihapus:*",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="Markdown"
+            "👇 Klik tugas yang ingin dihapus:",
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
     elif data.startswith("doneact_"):
         _, task_id_str, period = data.split("_")
@@ -178,8 +176,7 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
                 task_title = "tugas"
 
         await update.effective_chat.send_message(
-            f"🎉 *Keren!* Tugas *{task_title}* berhasil diselesaikan! Aviona bangga! 🚀",
-            parse_mode="Markdown"
+            f"🎉 Keren! Tugas {task_title} berhasil diselesaikan! Aviona bangga! 🚀"
         )
         await _send_tasks_for_period(update, period)
     elif data.startswith("delact_"):
@@ -200,8 +197,7 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
                 task_title = "tugas"
 
         await update.effective_chat.send_message(
-            f"🗑️ Tugas *{task_title}* berhasil dihapus dari daftar.",
-            parse_mode="Markdown"
+            f"🗑️ Tugas {task_title} berhasil dihapus dari daftar."
         )
         await _send_tasks_for_period(update, period)
 
@@ -223,26 +219,24 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             task = create_task_from_parsed(db, user_id, parsed, raw_text=text)
             deadline_str = task.deadline.strftime("%A, %d %B %Y jam %H:%M") if task.deadline else "belum diset"
             await update.message.reply_text(
-                f"✨ *Catatan Aviona Learn* ✨\n\n"
+                f"✨ Catatan Aviona Learn ✨\n\n"
                 f"Siap! Tugas kamu sudah berhasil aku catat ya:\n\n"
-                f"📝 *{task.title}*\n"
+                f"📝 {task.title}\n"
                 f"📚 Matkul: {task.course or '-'}\n"
                 f"⏰ Deadline: {deadline_str}\n"
-                f"🔔 Reminder: Sudah dijadwalkan secara otomatis! Semangat! 💪",
-                parse_mode="Markdown"
+                f"🔔 Reminder: Sudah dijadwalkan secara otomatis! Semangat! 💪"
             )
             return
 
         if intent == "create_schedule":
             schedule = create_schedule_from_parsed(db, user_id, parsed, raw_text=text)
             await update.message.reply_text(
-                f"📅 *Jadwal Kuliah Baru oleh Aviona*:\n\n"
-                f"📖 *{schedule.course}*\n"
+                f"📅 Jadwal Kuliah Baru oleh Aviona:\n\n"
+                f"📖 {schedule.course}\n"
                 f"📅 Hari: {schedule.day_of_week or '-'}\n"
                 f"🕒 Jam: {schedule.start_time or '-'} - {schedule.end_time or '-'}\n"
                 f"📍 Ruang: {schedule.room or '-'}\n\n"
-                f"Aku bakal ingetin kamu sebelum kelas dimulai ya! 😉",
-                parse_mode="Markdown"
+                f"Aku bakal ingetin kamu sebelum kelas dimulai ya! 😉"
             )
             return
 
@@ -251,10 +245,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             if task:
                 deadline_str = task.deadline.strftime("%A, %d %B %Y jam %H:%M") if task.deadline else "belum diset"
                 await update.message.reply_text(
-                    f"🔄 *Aviona berhasil memperbarui tugasmu*:\n\n"
-                    f"📝 *{task.title}*\n"
-                    f"⏰ Deadline baru: {deadline_str}",
-                    parse_mode="Markdown"
+                    f"🔄 Aviona berhasil memperbarui tugasmu:\n\n"
+                    f"📝 {task.title}\n"
+                    f"⏰ Deadline baru: {deadline_str}"
                 )
             else:
                 await update.message.reply_text("Maaf, aku tidak menemukan tugas yang dimaksud untuk diubah.")
@@ -271,7 +264,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if intent == "mark_done":
             task = mark_task_done_by_text(db, user_id, parsed.get("target") or text)
             if task:
-                await update.message.reply_text(f"🎉 *Keren banget!* Tugas *{task.title}* sudah selesai. Aviona bangga sama kamu! Semangat terus ya! 🚀", parse_mode="Markdown")
+                await update.message.reply_text(f"🎉 Keren banget! Tugas {task.title} sudah selesai. Aviona bangga sama kamu! Semangat terus ya! 🚀")
             else:
                 await update.message.reply_text("Aviona tidak menemukan tugas yang cocok untuk ditandai selesai.")
             return
@@ -335,17 +328,17 @@ async def _send_tasks_for_period(update: Update, period: str) -> None:
                 ]
             ]
         )
-        await chat.send_message(f"📋 *{title}*:\nBelum ada tugas. 🎉", reply_markup=keyboard, parse_mode="Markdown")
+        await chat.send_message(f"📋 {title}:\nBelum ada tugas. 🎉", reply_markup=keyboard)
         return
 
-    lines = [f"📋 *{title}*:"]
+    lines = [f"📋 {title}:"]
     for idx, task in enumerate(tasks, start=1):
         deadline_str = task.deadline.strftime("%d %b %Y %H:%M") if task.deadline else "-"
         status_icon = "✅" if task.status == "done" else "🕒"
         time_rem = format_remaining_time(task.deadline, now) if task.status != "done" else ""
-        time_rem_str = f"\n   _{time_rem}_" if time_rem else ""
+        time_rem_str = f"\n   {time_rem}" if time_rem else ""
         lines.append(
-            f"{idx}. {status_icon} *{task.title}*\n"
+            f"{idx}. {status_icon} {task.title}\n"
             f"   📚 Matkul: {task.course or '-'}\n"
             f"   ⏰ Deadline: {deadline_str}{time_rem_str}"
         )
@@ -363,7 +356,7 @@ async def _send_tasks_for_period(update: Update, period: str) -> None:
         ]
     )
 
-    await chat.send_message("\n\n".join(lines), reply_markup=keyboard, parse_mode="Markdown")
+    await chat.send_message("\n\n".join(lines), reply_markup=keyboard)
 
 
 async def schedule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -381,21 +374,20 @@ async def _send_schedule(update: Update) -> None:
 
     if not schedules:
         await chat.send_message(
-            "📅 *Jadwal Kuliah*:\nKamu belum mencatat jadwal kuliah apa pun. Yuk catat dengan mengetik:\n_\"Jadwal kuliah ASD setiap Senin jam 8 di GKU 101\"_",
-            parse_mode="Markdown"
+            "📅 Jadwal Kuliah:\nKamu belum mencatat jadwal kuliah apa pun. Yuk catat dengan mengetik:\n\"Jadwal kuliah ASD setiap Senin jam 8 di GKU 101\""
         )
         return
 
-    lines = ["📅 *Jadwal Kuliah Kamu:*"]
+    lines = ["📅 Jadwal Kuliah Kamu:"]
     current_day = None
     for s in schedules:
         day_title = (s.day_of_week or "Lainnya").capitalize()
         if day_title != current_day:
             current_day = day_title
-            lines.append(f"\n📌 *{current_day}*")
+            lines.append(f"\n📌 {current_day}")
 
         time_str = f"{s.start_time or ''} - {s.end_time or ''}" if s.start_time else "Waktu belum diset"
         room_str = f" @ {s.room}" if s.room else ""
-        lines.append(f"  • *{s.course}* ({time_str}){room_str}")
+        lines.append(f"  • {s.course} ({time_str}){room_str}")
 
-    await chat.send_message("\n".join(lines), parse_mode="Markdown")
+    await chat.send_message("\n".join(lines))

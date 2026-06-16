@@ -28,9 +28,9 @@ async def check_due_reminders(bot: Bot) -> None:
             if task:
                 deadline_str = task.deadline.strftime("%A, %d %B %Y jam %H:%M") if task.deadline else "-"
                 message = (
-                    f"🔔 *PENGINGAT AVIONA LEARN* 🔔\n\n"
+                    f"🔔 PENGINGAT AVIONA LEARN 🔔\n\n"
                     f"Hai! Aviona mau ingetin tugas penting kamu nih:\n\n"
-                    f"📝 *{task.title}*\n"
+                    f"📝 {task.title}\n"
                     f"📚 Matkul: {task.course or '-'}\n"
                     f"⏰ Deadline: {deadline_str}\n"
                     f"⚠️ Prioritas: {task.priority.capitalize()}\n\n"
@@ -38,7 +38,7 @@ async def check_due_reminders(bot: Bot) -> None:
                 )
 
             try:
-                await bot.send_message(chat_id=reminder.user_id, text=message, parse_mode="Markdown")
+                await bot.send_message(chat_id=reminder.user_id, text=message)
                 reminder.sent = True
                 db.commit()
             except Exception as exc:
