@@ -86,6 +86,6 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
             
         except Exception as exc:
             print(f"Error in generate_chat_response: {exc}")
-            fallback_reply = "Duh, maaf ya... Koneksi AI-ku sedang terganggu. Coba kirim pesan lagi sebentar lagi!"
+            fallback_reply = f"Duh, maaf ya... Koneksi AI-ku sedang terganggu. Coba kirim pesan lagi sebentar lagi!\n\n(Detail Error: {str(exc)})"
             save_chat_message(db, user_id=user_id, role="assistant", content=fallback_reply)
             return fallback_reply
