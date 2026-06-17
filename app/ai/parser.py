@@ -17,6 +17,42 @@ from app.database.repository import (
 from app.ai.prompts import get_system_prompt
 from app.utils.datetime_utils import now_local, local_to_utc, format_datetime_id
 
+AI_TIMEOUT_SECONDS = 20
+AI_MAX_TOKENS = 1200
+AI_TEMPERATURE = 0.7
+
+
+def _get_model_chain(settings) -> tuple[str, ...]:
+    models = getattr(settings, "ai_models", None) or ()
+    if models:
+        return tuple(dict.fromkeys(model.strip() for model in models if model.strip()))
+    return (settings.ai_model,)
+
+
+def _request_ai_reply(client: OpenAI, messages: list[dict[str, str]], models: tuple[str, ...]) -> str:
+    errors: list[str] = []
+
+    for model in models:
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=AI_TEMPERATURE,
+                max_tokens=AI_MAX_TOKENS,
+            )
+
+            reply = (response.choices[0].message.content or "").strip()
+            if not reply:
+                raise ValueError("empty response")
+
+            return reply
+        except Exception as exc:
+            error_summary = f"{model}: {type(exc).__name__}: {exc}"
+            errors.append(error_summary)
+            print(f"AI model fallback triggered - {error_summary}")
+
+    raise RuntimeError("All AI models failed: " + " | ".join(errors))
+
 
 def generate_chat_response(user_id: int, message_text: str) -> str:
     """
@@ -63,20 +99,14 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
             return reply
             
         try:
+            model_chain = _get_model_chain(settings)
             client = OpenAI(
                 api_key=settings.openrouter_api_key,
                 base_url=settings.ai_base_url,
+                timeout=AI_TIMEOUT_SECONDS,
             )
-            
-            response = client.chat.completions.create(
-                model=settings.ai_model,
-                messages=messages,
-                temperature=0.7,
-                max_tokens=4096,
-            )
-            
-            reply = response.choices[0].message.content or ""
-            reply = reply.strip()
+
+            reply = _request_ai_reply(client, messages, model_chain)
             
             # Extract long term memories from reply: format [MEMORY: statement]
             memory_match = re.search(r'\[MEMORY:\s*(.*?)\]', reply, re.IGNORECASE | re.DOTALL)
@@ -110,18 +140,9 @@ def generate_chat_response(user_id: int, message_text: str) -> str:
             
         except Exception as exc:
             print(f"Error in generate_chat_response: {exc}")
-            key_str = str(settings.openrouter_api_key) if settings.openrouter_api_key else ""
-            if len(key_str) > 8:
-                sanitized_key = f"{key_str[:5]}...{key_str[-5:]} (len={len(key_str)})"
-            else:
-                sanitized_key = f"{key_str} (len={len(key_str)})"
-            
             fallback_reply = (
-                f"Duh, maaf ya... Koneksi AI-ku sedang terganggu. Coba kirim pesan lagi sebentar lagi!\n\n"
-                f"<b>Detail Error:</b> {str(exc)}\n"
-                f"<b>Sanitized Key:</b> <code>{sanitized_key}</code>\n"
-                f"<b>Base URL:</b> <code>{settings.ai_base_url}</code>\n"
-                f"<b>Model:</b> <code>{settings.ai_model}</code>"
+                "Maaf ya, koneksi AI-ku lagi tidak stabil dan semua model cadangan belum bisa menjawab. "
+                "Coba kirim pesan lagi sebentar lagi."
             )
             save_chat_message(db, user_id=user_id, role="assistant", content=fallback_reply)
             return fallback_reply

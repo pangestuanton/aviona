@@ -29,6 +29,7 @@ def mock_settings():
         timezone="Asia/Jakarta",
         database_url="sqlite:///:memory:",
         reminder_check_interval_seconds=60,
+        ai_models=("gpt-4",),
     )
 
 
@@ -45,6 +46,7 @@ def test_generate_chat_response_no_key(mock_openai_class, mock_get_settings):
         timezone="Asia/Jakarta",
         database_url="sqlite:///:memory:",
         reminder_check_interval_seconds=60,
+        ai_models=("gpt-4",),
     )
     
     response = generate_chat_response(user_id=123, message_text="Halo")
@@ -130,3 +132,75 @@ def test_generate_chat_response_with_reminder(mock_openai_class, mock_get_settin
         # In mock settings, the timezone is "Asia/Jakarta" (UTC+7)
         # 2026-06-16 16:00:00 Asia/Jakarta in UTC is 2026-06-16 09:00:00
         assert reminders[0].remind_at.strftime("%Y-%m-%d %H:%M:%S") == "2026-06-16 09:00:00"
+
+
+@patch("app.ai.parser.SessionLocal", TestSessionLocal)
+@patch("app.ai.parser.get_settings")
+@patch("app.ai.parser.OpenAI")
+def test_generate_chat_response_falls_back_to_next_model(mock_openai_class, mock_get_settings, mock_settings):
+    mock_get_settings.return_value = Settings(
+        **{
+            **mock_settings.__dict__,
+            "ai_model": "primary-model",
+            "ai_models": ("primary-model", "secondary-model", "tertiary-model"),
+        }
+    )
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    mock_completion = MagicMock()
+    mock_completion.choices = [
+        MagicMock(message=MagicMock(content="Bisa, aku bantu dari model cadangan."))
+    ]
+    mock_client.chat.completions.create.side_effect = [
+        Exception("rate limited"),
+        mock_completion,
+    ]
+
+    response = generate_chat_response(user_id=777, message_text="Halo")
+
+    assert response == "Bisa, aku bantu dari model cadangan."
+    called_models = [
+        call.kwargs["model"]
+        for call in mock_client.chat.completions.create.call_args_list
+    ]
+    assert called_models == ["primary-model", "secondary-model"]
+
+
+@patch("app.ai.parser.SessionLocal", TestSessionLocal)
+@patch("app.ai.parser.get_settings")
+@patch("app.ai.parser.OpenAI")
+def test_generate_chat_response_retries_empty_response(mock_openai_class, mock_get_settings, mock_settings):
+    mock_get_settings.return_value = Settings(
+        **{
+            **mock_settings.__dict__,
+            "ai_model": "primary-model",
+            "ai_models": ("primary-model", "secondary-model"),
+        }
+    )
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    empty_completion = MagicMock()
+    empty_completion.choices = [
+        MagicMock(message=MagicMock(content="   "))
+    ]
+    valid_completion = MagicMock()
+    valid_completion.choices = [
+        MagicMock(message=MagicMock(content="Oke, aku catat pengingatnya."))
+    ]
+    mock_client.chat.completions.create.side_effect = [
+        empty_completion,
+        valid_completion,
+    ]
+
+    response = generate_chat_response(user_id=778, message_text="Ingetin aku nanti")
+
+    assert response == "Oke, aku catat pengingatnya."
+    called_models = [
+        call.kwargs["model"]
+        for call in mock_client.chat.completions.create.call_args_list
+    ]
+    assert called_models == ["primary-model", "secondary-model"]

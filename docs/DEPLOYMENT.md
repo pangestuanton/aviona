@@ -29,9 +29,9 @@ Berikut adalah 3 opsi deployment terbaik:
 5. **Konfigurasi Environment Variables**:
    - Klik tab **Variables** di panel Railway Anda, lalu tambahkan semua nilai dari file `.env` lokal Anda:
      - `TELEGRAM_BOT_TOKEN`
-     - `OPENAI_API_KEY`
+     - `OPENROUTER_API_KEY`
      - `AI_BASE_URL`
-     - `AI_MODEL`
+     - `AI_MODELS`
      - `APP_TIMEZONE` (set ke `Asia/Jakarta`)
      - `DATABASE_URL` (bisa gunakan SQLite default `sqlite:///data/study_bot.db` dengan menambahkan volume persisten di Railway agar database tidak hilang saat deploy ulang, ATAU buat database PostgreSQL gratisan di Railway lalu arahkan `DATABASE_URL` ke database tersebut).
 6. **Selesai!** Railway akan men-build dan menjalankan bot Anda di cloud secara otomatis.
@@ -58,7 +58,7 @@ Berikut adalah 3 opsi deployment terbaik:
      - `TELEGRAM_BOT_TOKEN`
      - `OPENROUTER_API_KEY`
      - `AI_BASE_URL`
-     - `AI_MODEL` (set ke `openrouter/free`)
+     - `AI_MODELS` (set ke `openai/gpt-oss-20b:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-nano-9b-v2:free`)
      - `APP_TIMEZONE` (set ke `Asia/Jakarta`)
      - `DATABASE_URL` (jika menggunakan SQLite default: `sqlite:///study_bot.db`)
 5. **Database Jangka Panjang & Uptime (Catatan Free Tier)**:

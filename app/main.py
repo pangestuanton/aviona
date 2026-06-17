@@ -21,7 +21,7 @@ from app.bot.handlers import (
     message_handler,
     callback_query_handler,
 )
-
+ 
 
 async def reminder_worker(application) -> None:
     from app.database.session import SessionLocal
