@@ -58,7 +58,7 @@ Berikut adalah 3 opsi deployment terbaik:
      - `TELEGRAM_BOT_TOKEN`
      - `OPENROUTER_API_KEY`
      - `AI_BASE_URL`
-     - `AI_MODELS` (set ke `openai/gpt-oss-20b:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-nano-9b-v2:free`)
+     - `AI_MODELS` (set ke `openai/gpt-oss-120b:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-nano-9b-v2:free`)
      - `APP_TIMEZONE` (set ke `Asia/Jakarta`)
      - `DATABASE_URL` (jika menggunakan SQLite default: `sqlite:///study_bot.db`)
 5. **Database Jangka Panjang & Uptime (Catatan Free Tier)**:

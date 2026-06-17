@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DEFAULT_AI_MODELS = (
-    "openai/gpt-oss-20b:free",
+    "openai/gpt-oss-120b:free",
     "google/gemma-4-26b-a4b-it:free",
     "nvidia/nemotron-nano-9b-v2:free",
 )

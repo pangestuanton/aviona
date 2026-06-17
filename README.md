@@ -96,7 +96,7 @@ OPENROUTER_API_KEY=api_key_openai_atau_openrouter
 
 # Konfigurasi AI Provider (Opsional, bawaan: OpenRouter)
 AI_BASE_URL=https://openrouter.ai/api/v1
-AI_MODELS=openai/gpt-oss-20b:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-nano-9b-v2:free
+AI_MODELS=openai/gpt-oss-120b:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-nano-9b-v2:free
 
 # Konfigurasi Database & Timezone
 APP_TIMEZONE=Asia/Jakarta
